@@ -24,12 +24,17 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
     [Range(0.5f, 1f)]
     [SerializeField] private float fitWidthFactor = 0.8f;
 
+    [Header("Obstaculos")]
+    [Tooltip("Margen de seguridad con obstaculos: frena antes de que el casco los toque.")]
+    [SerializeField] private float obstacleStopMargin = 0.5f;
+
     [Header("Vida")]
     [Tooltip("Vida maxima del tanque.")]
     [SerializeField] private float maxHealth = 100f;
 
     private CharacterController controller;
     private CannonController cannon;
+    private PlayerObstacleSensor obstacleSensor;
     private Vector3 forwardLocal;
     private float verticalSpeed;
     private float currentHealth;
@@ -81,6 +86,7 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
     {
         controller = GetComponent<CharacterController>();
         cannon = GetComponentInChildren<CannonController>();
+        obstacleSensor = GetComponent<PlayerObstacleSensor>();
     }
 
     private void Start()
@@ -153,6 +159,8 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
             forward.Normalize();
         }
 
+        obstacleSensor?.Refresh(forward);
+
         if (controller.isGrounded && verticalSpeed < 0f)
         {
             verticalSpeed = -2f;
@@ -160,7 +168,42 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
         verticalSpeed -= gravity * Time.deltaTime;
 
         Vector3 motion = forward * (throttle * moveSpeed) + Vector3.up * verticalSpeed;
+        motion = ApplyObstacleBraking(motion);
         controller.Move(motion * Time.deltaTime);
+    }
+
+    /// <summary>
+    /// Freno suave contra obstaculos: por cada rayo que detecta
+    /// algo dentro del margen, quita la componente del movimiento
+    /// que va hacia ese lado, proporcional a la distancia. El
+    /// casco visual deja de traspasar la montana y el tanque puede
+    /// deslizar lateralmente en vez de pararse en seco.
+    /// </summary>
+    private Vector3 ApplyObstacleBraking(Vector3 motion)
+    {
+        if (obstacleSensor == null || obstacleStopMargin <= 0f)
+        {
+            return motion;
+        }
+
+        for (int i = 0; i < obstacleSensor.ReadingCount; i++)
+        {
+            Vector3 direction = obstacleSensor.ReadingDirection(i);
+            float clearance = obstacleSensor.ReadingDistance(i) - obstacleSensor.ExtentAlong(direction);
+            if (clearance >= obstacleStopMargin)
+            {
+                continue;
+            }
+
+            float scale = Mathf.Clamp01(Mathf.Max(clearance, 0f) / obstacleStopMargin);
+            float towards = Vector3.Dot(motion, direction);
+            if (towards > 0f)
+            {
+                motion -= direction * (towards * (1f - scale));
+            }
+        }
+
+        return motion;
     }
 
     private Vector3 ResolveForward()

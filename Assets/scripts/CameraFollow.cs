@@ -4,7 +4,9 @@ using UnityEngine;
 /// Camara de persecucion "detras del morro": se ubica siempre por detras
 /// del rumbo del tanque (MovingForward) y lo mira, manteniendo el horizonte
 /// nivelado. Es orgánica al girar y desliza suavemente en teleports
-/// (respawn), sin heredar la rotacion del player.
+/// (respawn), sin heredar la rotacion del player. Si un obstaculo de
+/// Decor tapa la linea player-camara, se levanta (y se inclina en X)
+/// proporcionalmente, y como ultimo recurso se acerca al obstaculo.
 /// </summary>
 public class CameraFollow : MonoBehaviour
 {
@@ -24,6 +26,18 @@ public class CameraFollow : MonoBehaviour
     [Tooltip("Velocidad maxima del movimiento de la camara (u/s). Limita el desliz en teleports/respawn.")]
     [SerializeField] private float maxSpeed = 60f;
 
+    [Header("Obstaculos")]
+    [Tooltip("Sensor de obstaculos del player. Vacio = se busca en el target.")]
+    [SerializeField] private PlayerObstacleSensor obstacleSensor;
+    [Tooltip("Levantamiento de la camara proporcional a la penetracion del rayo player-camara (u por u).")]
+    [SerializeField] private float liftFactor = 1f;
+    [Tooltip("Levantamiento maximo de la camara (u).")]
+    [SerializeField] private float maxLift = 20f;
+    [Tooltip("Si con el levantamiento maximo la vista sigue tapada, acercar la camara al obstaculo.")]
+    [SerializeField] private bool pullInWhenBlocked = true;
+    [Tooltip("Distancia minima entre la camara y el obstaculo al acercarla.")]
+    [SerializeField] private float collisionPadding = 1f;
+
     private Vector3 velocity;
 
     private void LateUpdate()
@@ -41,9 +55,16 @@ public class CameraFollow : MonoBehaviour
             }
         }
 
+        if (obstacleSensor == null)
+        {
+            obstacleSensor = target.GetComponent<PlayerObstacleSensor>();
+        }
+
         Vector3 forward = GetTankForward();
         Vector3 desired = target.position - forward * distance + Vector3.up * height;
         Vector3 lookPoint = target.position + Vector3.up * lookHeight;
+
+        desired = AdjustForObstacles(lookPoint, desired);
 
         if (smoothing <= 0f)
         {
@@ -62,6 +83,43 @@ public class CameraFollow : MonoBehaviour
             transform.rotation,
             Quaternion.LookRotation(direction.normalized, Vector3.up),
             smoothing * Time.deltaTime);
+    }
+
+    /// <summary>
+    /// Reacomodo de la camara ante obstaculos: si el rayo
+    /// player-camara choca, levanta la camara proporcionalmente
+    /// (al seguir mirando al mismo punto, la rotacion en X se
+    /// inclina sola) y, si con el levantamiento maximo la vista
+    /// sigue tapada, la acerca al obstaculo.
+    /// </summary>
+    private Vector3 AdjustForObstacles(Vector3 origin, Vector3 desired)
+    {
+        if (obstacleSensor == null)
+        {
+            return desired;
+        }
+
+        float lift = 0f;
+        if (obstacleSensor.RaycastTowards(origin, desired, out float hitDistance))
+        {
+            float penetration = Vector3.Distance(origin, desired) - hitDistance;
+            if (penetration > 0f)
+            {
+                lift = Mathf.Clamp(penetration * Mathf.Max(liftFactor, 0f), 0f, Mathf.Max(maxLift, 0f));
+            }
+        }
+
+        desired.y += lift;
+
+        if (pullInWhenBlocked && maxLift > 0f && lift >= maxLift
+            && obstacleSensor.RaycastTowards(origin, desired, out float stillBlocked))
+        {
+            Vector3 direction = (desired - origin).normalized;
+            float stop = Mathf.Max(stillBlocked - Mathf.Max(collisionPadding, 0f), 0.1f);
+            desired = origin + direction * stop;
+        }
+
+        return desired;
     }
 
     private Vector3 GetTankForward()
