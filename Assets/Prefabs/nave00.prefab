@@ -163,10 +163,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyTankShip
   maxHealth: 60
-  detectionRange: 45
+  detectionRange: 200
   attackRange: 0
   damageAmount: 12
-  attackCooldown: 2
+  attackCooldown: 1.5
   hoverHeight: 0
   detectionRangeFactor: 20
   attackRangeFactor: 3.5

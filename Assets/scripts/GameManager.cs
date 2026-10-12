@@ -45,10 +45,22 @@ public class GameManager : MonoBehaviour
     private bool finished;
     private bool pendingAdvance;
     private float pauseTimer;
+    private int totalEnemies;
+    private int remainingEnemies;
+
+    /// <summary>Cambia cuando muere un enemigo: pasa los que faltan matar. Se
+    /// dispara una vez al arrancar (para que la UI pinte el total) y en cada baja.</summary>
+    public event System.Action<int> OnEnemiesRemainingChanged;
 
     public int CurrentIndex => currentIndex;
     public int ActiveEnemyCount => activeEnemies.Count;
     public bool IsFinished => finished;
+
+    /// <summary>Total de enemigos que spawnean todas las oleadas de la partida.</summary>
+    public int TotalEnemies => totalEnemies;
+
+    /// <summary>Enemigos que todavia faltan matar (total menos bajas).</summary>
+    public int RemainingEnemies => remainingEnemies;
 
     private void Awake()
     {
@@ -103,6 +115,40 @@ public class GameManager : MonoBehaviour
                     checkpoint);
             }
         }
+
+        totalEnemies = CountTotalEnemies();
+        remainingEnemies = totalEnemies;
+        Debug.Log($"[GameManager] Enemigos totales de la partida: {totalEnemies}.", this);
+        OnEnemiesRemainingChanged?.Invoke(remainingEnemies);
+    }
+
+    /// <summary>
+    /// Suma los enemigos de todas las oleadas de la partida. Se agrupa por indice
+    /// (las variantes 1a/1b/1c comparten la misma WaveDefinition y solo dispara la
+    /// primera que toca el player, asi que cuentan una sola vez). Los checkpoints de
+    /// victoria no spawnean y no cuentan.
+    /// </summary>
+    private int CountTotalEnemies()
+    {
+        int total = 0;
+        HashSet<int> counted = new HashSet<int>();
+
+        foreach (WaveCheckpoint checkpoint in checkpoints)
+        {
+            if (checkpoint == null || checkpoint.IsVictory || checkpoint.Wave == null)
+            {
+                continue;
+            }
+
+            if (!counted.Add(checkpoint.Index))
+            {
+                continue;
+            }
+
+            total += checkpoint.Wave.TotalCount;
+        }
+
+        return total;
     }
 
     private void OnDestroy()
@@ -264,6 +310,9 @@ public class GameManager : MonoBehaviour
             enemy.Died -= OnEnemyDied;
         }
         activeEnemies.Remove(enemy);
+
+        remainingEnemies = Mathf.Max(remainingEnemies - 1, 0);
+        OnEnemiesRemainingChanged?.Invoke(remainingEnemies);
 
         // spawnComplete evita cerrar la oleada a mitad del stagger: si un enemigo
         // ya spawneado muere rapido, no cuenta como "campo limpio" hasta que el

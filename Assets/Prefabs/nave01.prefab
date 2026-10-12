@@ -22,35 +22,35 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 4c70a68cc71e036f69edf4af9b9b4cf2, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 65.7
+      value: 65.88646
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 4c70a68cc71e036f69edf4af9b9b4cf2, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -35.54
+      value: -35.539974
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 4c70a68cc71e036f69edf4af9b9b4cf2, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 12.1
+      value: 11.235764
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 4c70a68cc71e036f69edf4af9b9b4cf2, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.65334016
+      value: 0.37282345
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 4c70a68cc71e036f69edf4af9b9b4cf2, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0.65334034
+      value: -0.37282345
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 4c70a68cc71e036f69edf4af9b9b4cf2, type: 3}
       propertyPath: m_LocalRotation.y
-      value: -0.27045628
+      value: -0.60083497
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 4c70a68cc71e036f69edf4af9b9b4cf2, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0.27045628
+      value: -0.60083497
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 4c70a68cc71e036f69edf4af9b9b4cf2, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
-      value: -90
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 4c70a68cc71e036f69edf4af9b9b4cf2, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
@@ -58,7 +58,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 4c70a68cc71e036f69edf4af9b9b4cf2, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
-      value: -44.975
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 4c70a68cc71e036f69edf4af9b9b4cf2, type: 3}
       propertyPath: m_ConstrainProportionsScale
@@ -101,7 +101,7 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 0.0045
-  m_Speed: 5.5
+  m_Speed: 8
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 120
@@ -147,8 +147,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyShooter
   maxHealth: 60
-  detectionRange: 30
-  attackRange: 0
+  detectionRange: 200
+  attackRange: 20
   damageAmount: 12
   attackCooldown: 3
   hoverHeight: 0
@@ -172,9 +172,15 @@ MonoBehaviour:
   contactCooldown: 1
   deathVfxPrefab: {fileID: 189680566463950908, guid: c31129ada5164f2895be77d51e4933e0, type: 3}
   deathVfxScaleMultiplier: 5.7
-  sinkSpeed: 4
-  sinkDuration: 1.5
+  deathVfxExplosionCount: 3
+  deathVfxExplosionDelay: 0.12
+  deathVfxExplosionSpread: 0.4
+  deathVfxParticleMultiplier: 4
+  deathSwellScale: 1.15
+  deathSwellPulses: 3
+  deathSwellDuration: 0.5
+  avoidanceRadiusFactor: 1
   muzzleRadius: 0
   spreadAngle: 120
   maxArcHalfAngle: 60
-  aimJitter: 4
+  aimJitter: 0

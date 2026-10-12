@@ -36,17 +36,23 @@ public class HudController : MonoBehaviour
     [SerializeField] private HealthBarView healthBar;
     [SerializeField] private BeeStatusView bee;
     [SerializeField] private BombCounterView bombs;
+    [SerializeField] private EnemyCounterView enemies;
+
+    [Tooltip("Si se deja vacio se busca el primero de la escena al Awake.")]
+    [SerializeField] private GameManager gameManager;
 
     private void Awake()
     {
         ResolveTank();
         ResolveHoneypotActivator();
+        ResolveGameManager();
     }
 
     private void OnEnable()
     {
         ResolveTank();
         ResolveHoneypotActivator();
+        ResolveGameManager();
 
         if (tank != null)
         {
@@ -60,8 +66,15 @@ public class HudController : MonoBehaviour
             honeypotActivator.OnHoneypotCountChanged += HandleHoneypotCount;
         }
 
+        if (gameManager != null)
+        {
+            gameManager.OnEnemiesRemainingChanged -= HandleEnemiesRemaining;
+            gameManager.OnEnemiesRemainingChanged += HandleEnemiesRemaining;
+        }
+
         Debug.Log($"[HudController] tank={(tank != null ? tank.name : "NULL")} " +
-                  $"healthBar={(healthBar != null)} bee={(bee != null)} bombs={(bombs != null)}", this);
+                  $"healthBar={(healthBar != null)} bee={(bee != null)} bombs={(bombs != null)} " +
+                  $"enemies={(enemies != null)} gameManager={(gameManager != null)}", this);
     }
 
     private void OnDisable()
@@ -75,14 +88,21 @@ public class HudController : MonoBehaviour
         {
             honeypotActivator.OnHoneypotCountChanged -= HandleHoneypotCount;
         }
+
+        if (gameManager != null)
+        {
+            gameManager.OnEnemiesRemainingChanged -= HandleEnemiesRemaining;
+        }
     }
 
     private void Start()
     {
         ResolveTank();
         ResolveHoneypotActivator();
+        ResolveGameManager();
         PushCurrentHealth();
         PushCurrentHoneypotCount();
+        PushCurrentEnemies();
     }
 
     private void ResolveTank()
@@ -98,6 +118,14 @@ public class HudController : MonoBehaviour
         if (honeypotActivator == null)
         {
             honeypotActivator = FindFirstObjectByType<HoneyPotActivator>();
+        }
+    }
+
+    private void ResolveGameManager()
+    {
+        if (gameManager == null)
+        {
+            gameManager = FindFirstObjectByType<GameManager>();
         }
     }
 
@@ -129,6 +157,28 @@ public class HudController : MonoBehaviour
         }
 
         Debug.Log($"[HudController] honeypots restantes {count}", this);
+    }
+
+    private void PushCurrentEnemies()
+    {
+        if (gameManager != null)
+        {
+            HandleEnemiesRemaining(gameManager.RemainingEnemies);
+        }
+    }
+
+    private void HandleEnemiesRemaining(int count)
+    {
+        if (enemies == null)
+        {
+            Debug.LogError("[HudController] enemies sin asignar: el contador de enemigos no se va a actualizar.", this);
+        }
+        else
+        {
+            enemies.SetCount(count);
+        }
+
+        Debug.Log($"[HudController] enemigos restantes {count}", this);
     }
 
     private void HandleHealth(float current, float max)

@@ -33,6 +33,7 @@ public static class BuildHud
     private const float BeeSize = 96f;
     private const float BeeGap = 12f;
     private const float BombIconSize = 64f;
+    private const float CounterGap = 12f;
 
     /// <summary>
     /// Cuantos sprites del sheet son la abeja. El sexto NO es del HUD: es la abeja
@@ -86,12 +87,14 @@ public static class BuildHud
         HealthBarView bar = BuildHealthBar(topLeft);
         BeeStatusView bee = BuildBee(topLeft, beeSprites);
         BombCounterView bombs = BuildBombs(topRight);
+        EnemyCounterView enemies = BuildEnemies(topRight);
 
         HudController hud = canvas.gameObject.AddComponent<HudController>();
         Assign(hud, "tank", null);
         Assign(hud, "healthBar", bar);
         Assign(hud, "bee", bee);
         Assign(hud, "bombs", bombs);
+        Assign(hud, "enemies", enemies);
 
         EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
         Debug.Log("[BuildHud] HUD generado. Recorda guardar la escena (Ctrl+S).");
@@ -193,6 +196,34 @@ public static class BuildHud
         BombCounterView view = widget.gameObject.AddComponent<BombCounterView>();
         Assign(view, "countText", text);
         Assign(view, "bombIcon", icon);
+        return view;
+    }
+
+    private static EnemyCounterView BuildEnemies(RectTransform parent)
+    {
+        RectTransform widget = NewRect("EnemiesWidget", parent);
+        Anchor(widget, new Vector2(1f, 1f), new Vector2(1f, 1f),
+            new Vector2(0f, -(BombIconSize + CounterGap)), Vector2.zero);
+
+        RectTransform iconRect = NewRect("EnemyIcon", widget);
+        Anchor(iconRect, new Vector2(1f, 1f), new Vector2(1f, 1f), Vector2.zero, new Vector2(BombIconSize, BombIconSize));
+        Image icon = iconRect.gameObject.AddComponent<Image>();
+        icon.preserveAspect = true;
+        icon.raycastTarget = false;
+
+        // Igual que el icono de bombas: sin sprite, transparente, listo para que le
+        // asignen la imagen del enemigo.
+        icon.sprite = null;
+        icon.color = new Color(1f, 1f, 1f, 0f);
+
+        Text text = BuildText("EnemyCount", widget, 26, TextAnchor.MiddleLeft);
+        Anchor(text.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f),
+            new Vector2(-(BombIconSize + 10f), 0f), new Vector2(90f, BombIconSize));
+        text.text = "0";
+
+        EnemyCounterView view = widget.gameObject.AddComponent<EnemyCounterView>();
+        Assign(view, "countText", text);
+        Assign(view, "enemyIcon", icon);
         return view;
     }
 

@@ -4,6 +4,8 @@ using UnityEngine;
 /// Nave circular con tres cañones en los costados (0, +spreadAngle, -spreadAngle).
 /// En cada disparo sale SOLO el cañón que tiene al player dentro de su arco, y la
 /// boca se calcula con el tamaño real del casco para que la bala nazca fuera de él.
+/// La bala se apunta desde la boca hacia el cuerpo del tanque (no hacia el pivote),
+/// para que el tiro salga derecho.
 /// </summary>
 public class EnemyShooter : EnemyTemplate
 {
@@ -30,15 +32,20 @@ public class EnemyShooter : EnemyTemplate
             nose = Vector3.forward;
         }
 
-        Vector3 toPlayer = player.position - transform.position;
-        toPlayer.y = 0f;
-        if (toPlayer.sqrMagnitude < 0.0001f)
+        // Apunta al CUERPO del tanque (centro de sus renderers), no a player.position:
+        // el rig del tanque tiene el modelo corrido ~4u del pivote y apuntar al pivote
+        // desviaba el tiro. Misma referencia que usa EnemyTankShip.
+        Vector3 target = PlayerAimPoint();
+
+        Vector3 bearing = target - transform.position;
+        bearing.y = 0f;
+        if (bearing.sqrMagnitude < 0.0001f)
         {
             return;
         }
-        toPlayer.Normalize();
+        bearing.Normalize();
 
-        int slot = FacingCannonSlot(nose, toPlayer);
+        int slot = FacingCannonSlot(nose, bearing);
         if (slot == int.MinValue)
         {
             return;
@@ -47,10 +54,26 @@ public class EnemyShooter : EnemyTemplate
         Vector3 cannonDirection = Quaternion.Euler(0f, spreadAngle * slot, 0f) * nose;
         cannonDirection.Normalize();
 
-        Vector3 aim = Quaternion.Euler(0f, Random.Range(-aimJitter, aimJitter), 0f) * toPlayer;
         Vector3 muzzle = transform.position + cannonDirection * MuzzleDistanceAlong(cannonDirection, muzzleRadius);
 
-        SpawnEnemyProjectile(muzzle, aim, player.position, damageAmount);
+        // La bala nace en la boca, desplazada del centro de la nave: hay que apuntar
+        // DESDE la boca al objetivo (en 3D), no lanzar una copia del bearing. Como la
+        // boca esta fuera del eje, una direccion paralela mantiene el desvio lateral
+        // durante todo el vuelo y la bala pasa de costado. Incluir 'y' tambien corrige
+        // el angulo vertical para que no pase por arriba/abajo del tanque.
+        Vector3 aim = target - muzzle;
+        if (aim.sqrMagnitude < 0.0001f)
+        {
+            return;
+        }
+        aim.Normalize();
+
+        if (aimJitter > 0f)
+        {
+            aim = Quaternion.Euler(0f, Random.Range(-aimJitter, aimJitter), 0f) * aim;
+        }
+
+        SpawnEnemyProjectile(muzzle, aim, target, damageAmount);
     }
 
     /// <summary>

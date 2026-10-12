@@ -99,7 +99,7 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 0.003
-  m_Speed: 6
+  m_Speed: 10
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 120
@@ -170,6 +170,15 @@ MonoBehaviour:
   contactCooldown: 1
   deathVfxPrefab: {fileID: 189680566463950908, guid: c31129ada5164f2895be77d51e4933e0, type: 3}
   deathVfxScaleMultiplier: 5.7
-  sinkSpeed: 4
-  sinkDuration: 1.5
+  deathVfxExplosionCount: 3
+  deathVfxExplosionDelay: 0.12
+  deathVfxExplosionSpread: 0.4
+  deathVfxParticleMultiplier: 4
+  deathSwellScale: 1.15
+  deathSwellPulses: 3
+  deathSwellDuration: 0.5
+  avoidanceRadiusFactor: 1
+  weaveAmplitudeFactor: 5
+  weaveFrequency: 2
+  weaveFadeDistanceFactor: 0
   rollSpeed: 360

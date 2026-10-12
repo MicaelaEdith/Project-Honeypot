@@ -85,6 +85,14 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
     [Tooltip("Radio de evitacion entre naves como fraccion del radio real del casco (1 = cascos apenas sin tocarse).")]
     [SerializeField] private float avoidanceRadiusFactor = 1f;
 
+    [Header("Bamboleo")]
+    [Tooltip("Amplitud del vaiven lateral al perseguir, como fraccion del radio del casco. 0 = se acerca en linea recta.")]
+    [SerializeField] private float weaveAmplitudeFactor = 0f;
+    [Tooltip("Velocidad del vaiven en radianes por segundo. ~2 = un zigzag cada 3 segundos.")]
+    [SerializeField] private float weaveFrequency = 2f;
+    [Tooltip("Distancia (fraccion del radio del casco) dentro de la cual el vaiven se apaga para encarar el golpe. 0 = nunca se apaga.")]
+    [SerializeField] private float weaveFadeDistanceFactor = 0.5f;
+
     protected NavMeshAgent agent;
     protected EnemyState currentState { get; private set; } = EnemyState.Idle;
     protected Transform player { get; private set; }
@@ -174,6 +182,8 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
     private float hullRadius;
     private Bounds hullBounds;
     private Vector3 baseLocalScale = Vector3.one;
+    private Quaternion baseLocalRotation = Quaternion.identity;
+    private float weavePhase;
     private bool diedNotified;
 
     /// <summary>
@@ -372,6 +382,13 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
     {
         agent = GetComponent<NavMeshAgent>();
         baseLocalScale = transform.localScale;
+        // El prefab hornea la inclinacion del modelo en localRotation (la rotacion P:
+        // techo arriba, morro adelante). ResetForSpawn la necesita para no pisar la
+        // pose al recolocar: se captura aca porque Awake corre al instanciar, con la
+        // localRotation del prefab intacta (aun bajo un padre rotado).
+        baseLocalRotation = transform.localRotation;
+        // Fase propia para que varias naves no bamboleen sincronizadas.
+        weavePhase = Random.value * Mathf.PI * 2f;
     }
 
     protected virtual void Start()
@@ -709,11 +726,50 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         }
         else
         {
-            TrySetDestination(TargetPosition());
+            TrySetDestination(WeavePoint(TargetPosition()));
             SetStopped(false);
         }
 
         RotateIfNeeded(TargetPosition());
+    }
+
+    /// <summary>
+    /// Destino del zigzag: compensa el objetivo lateralmente con una senoidal para
+    /// que la nave no se acerque en linea recta. La amplitud es una fraccion del
+    /// radio del casco y se apaga dentro de weaveFadeDistanceFactor radios, para que
+    /// enderece y encare el golpe en vez de orbitar al tanque. Los chequeos de rango
+    /// (deteccion, ataque, contacto) siguen usando el objetivo real, no este punto.
+    /// </summary>
+    private Vector3 WeavePoint(Vector3 target)
+    {
+        float amplitude = HullRadius() * Mathf.Max(weaveAmplitudeFactor, 0f);
+        if (amplitude <= 0.0001f)
+        {
+            return target;
+        }
+
+        Vector3 toTarget = target - transform.position;
+        toTarget.y = 0f;
+        if (toTarget.sqrMagnitude < 0.0001f)
+        {
+            return target;
+        }
+
+        Vector3 side = Vector3.Cross(Vector3.up, toTarget.normalized);
+        if (side.sqrMagnitude < 0.0001f)
+        {
+            return target;
+        }
+
+        float fade = 1f;
+        if (weaveFadeDistanceFactor > 0f)
+        {
+            float fadeDistance = HullRadius() * weaveFadeDistanceFactor;
+            fade = Mathf.Clamp01(toTarget.magnitude / fadeDistance);
+        }
+
+        float offset = Mathf.Sin(Time.time * weaveFrequency + weavePhase) * amplitude * fade;
+        return target + side * offset;
     }
 
     private void UpdateAttackState()
@@ -827,7 +883,7 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
             }
         }
 
-        transform.SetPositionAndRotation(position, rotation);
+        transform.SetPositionAndRotation(position, SpawnRotation(rotation));
         transform.localScale = baseLocalScale;
 
         currentHealth = maxHealth;
@@ -841,6 +897,7 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         hasAimSample = false;
         nextAttackTime = 0f;
         nextContactTime = 0f;
+        weavePhase = Random.value * Mathf.PI * 2f;
 
         SetCollidersEnabled(true);
         FitColliderToMesh();
@@ -858,6 +915,31 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         }
 
         Debug.Log($"[{name}] ResetForSpawn en {position}.", this);
+    }
+
+    /// <summary>
+    /// Rotacion de mundo para recolocar la instancia: se conserva la pose horneada
+    /// del prefab (baseLocalRotation, la P con techo arriba y morro adelante) y se le
+    /// compone encima solo el rumbo (yaw) que pide el SpawnPoint.
+    ///
+    /// No se puede usar la rotacion cruda del SpawnPoint tal cual: pisaria la P y el
+    /// modelo quedaria en identidad = de costado (el bug del pool). Y el SpawnPoint
+    /// puede arrastrar pitch/roll de cuando se lo coloco en escena, asi que de esa
+    /// rotacion solo se toma la direccion horizontal.
+    /// </summary>
+    private Quaternion SpawnRotation(Quaternion spawnRotation)
+    {
+        Vector3 forward = spawnRotation * Vector3.forward;
+        forward.y = 0f;
+        Quaternion heading = forward.sqrMagnitude > 0.0001f
+            ? Quaternion.LookRotation(forward, Vector3.up)
+            : Quaternion.identity;
+
+        Quaternion parentWorld = transform.parent != null
+            ? transform.parent.rotation
+            : Quaternion.identity;
+
+        return heading * parentWorld * baseLocalRotation;
     }
 
     private void SpawnDeathExplosion()
@@ -962,19 +1044,7 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
 
     private Bounds LiveHullBounds()
     {
-        Renderer[] renderers = GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0)
-        {
-            return new Bounds(transform.position, Vector3.one);
-        }
-
-        Bounds bounds = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
-        {
-            bounds.Encapsulate(renderers[i].bounds);
-        }
-
-        return bounds;
+        return ComputeHullBounds();
     }
 
     private Bounds GizmoHullBounds()
@@ -984,19 +1054,71 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
             return hullBounds;
         }
 
-        Renderer[] renderers = GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0)
+        return ComputeHullBounds();
+    }
+
+    /// <summary>
+    /// Bounds mundiales del casco a partir de los localBounds de cada Renderer
+    /// transformados por su localToWorldMatrix (las 8 esquinas del AABB local).
+    /// No se puede usar Renderer.bounds aca: Unity lo recalcula de forma diferida y
+    /// justo despues de instanciar/activar una instancia del pool devuelve bounds
+    /// viejos o sin escalar (daba un casco ~90x mas chico). Esto si refleja el
+    /// transform actual de forma sincronica.
+    /// </summary>
+    private Bounds ComputeHullBounds(Renderer[] renderers)
+    {
+        if (renderers == null || renderers.Length == 0)
         {
             return new Bounds(transform.position, Vector3.one);
         }
 
-        Bounds bounds = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
+        Bounds bounds = default;
+        bool found = false;
+
+        foreach (Renderer renderer in renderers)
         {
-            bounds.Encapsulate(renderers[i].bounds);
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            Bounds local = renderer.localBounds;
+            Matrix4x4 matrix = renderer.transform.localToWorldMatrix;
+
+            for (int x = -1; x <= 1; x += 2)
+            {
+                for (int y = -1; y <= 1; y += 2)
+                {
+                    for (int z = -1; z <= 1; z += 2)
+                    {
+                        Vector3 corner = local.center + Vector3.Scale(local.extents, new Vector3(x, y, z));
+                        Vector3 world = matrix.MultiplyPoint3x4(corner);
+
+                        if (!found)
+                        {
+                            bounds = new Bounds(world, Vector3.zero);
+                            found = true;
+                        }
+                        else
+                        {
+                            bounds.Encapsulate(world);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!found)
+        {
+            return new Bounds(transform.position, Vector3.one);
         }
 
         return bounds;
+    }
+
+    private Bounds ComputeHullBounds()
+    {
+        return ComputeHullBounds(GetComponentsInChildren<Renderer>());
     }
 
     private void TryContactDamage(float distance)
@@ -1158,11 +1280,7 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
             return;
         }
 
-        Bounds worldBounds = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
-        {
-            worldBounds.Encapsulate(renderers[i].bounds);
-        }
+        Bounds worldBounds = ComputeHullBounds(renderers);
 
         // Cacheado antes de tocar el collider: es la referencia de escala que usan
         // rangos, proyectiles y bocas de cañon.
