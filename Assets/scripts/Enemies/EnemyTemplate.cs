@@ -92,6 +92,22 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
     public EnemyState CurrentState => currentState;
 
     /// <summary>
+    /// Se dispara UNA sola vez, al terminar la secuencia de muerte (despues de la
+    /// explosion, no en health &lt;= 0). Es el enganche del GameManager para contar
+    /// bajas sin acoplarse: cuando el campo queda realmente limpio, no cuando la
+    /// nave empieza a explotar.
+    /// </summary>
+    public event System.Action<EnemyTemplate> Died;
+
+    /// <summary>Pool dueno de esta instancia. Vacio = la muerte destruye el objeto.</summary>
+    public EnemyPool Pool { get; private set; }
+
+    public void AttachPool(EnemyPool owner)
+    {
+        Pool = owner;
+    }
+
+    /// <summary>
     /// Direccion horizontal hacia la que apunta el morro de la nave (modelForward
     /// proyectado sobre el plano XZ). Nunca devuelve un vector de mundo constante:
     /// si el eje configurado colapsa a vertical prueba ejes locales alternativos,
@@ -157,6 +173,8 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
     private bool hoverChecked;
     private float hullRadius;
     private Bounds hullBounds;
+    private Vector3 baseLocalScale = Vector3.one;
+    private bool diedNotified;
 
     /// <summary>
     /// Radio horizontal del casco en unidades de mundo, medido sobre los bounds
@@ -342,6 +360,18 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
     {
         Bounds bounds = HullBounds();
         return bounds.size.sqrMagnitude > 0.0001f ? bounds.center : transform.position;
+    }
+
+    /// <summary>
+    /// Awake corre siempre al instanciar, incluso si el pool la desactiva enseguida
+    /// (Instantiate crea activa y el pool la apaga despues). Por eso aca se toman las
+    /// referencias y la escala original que ResetForSpawn necesita: si dependiera de
+    /// Start, el primer Spawn (que reactiva antes de que Start haya corrido) fallaria.
+    /// </summary>
+    protected virtual void Awake()
+    {
+        agent = GetComponent<NavMeshAgent>();
+        baseLocalScale = transform.localScale;
     }
 
     protected virtual void Start()
@@ -744,8 +774,90 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         else
         {
             SpawnDeathExplosion();
+            FinishDeath();
+        }
+    }
+
+    /// <summary>
+    /// Cierra la secuencia de muerte. Avisa a quien cuente bajas (Died) y despues
+    /// devuelve la instancia al pool, o la destruye si no esta pooleada. El orden
+    /// importa: el GameManager se entera cuando la explosion ya salio, asi el
+    /// siguiente indice no arranca con la nave todavia en el aire.
+    /// </summary>
+    private void FinishDeath()
+    {
+        if (diedNotified)
+        {
+            return;
+        }
+        diedNotified = true;
+
+        Died?.Invoke(this);
+
+        if (Pool != null)
+        {
+            Pool.Reclaim(this);
+        }
+        else
+        {
             Destroy(gameObject);
         }
+    }
+
+    /// <summary>
+    /// Deja la instancia lista para volver a jugar en otra posicion (pooling). Es el
+    /// espejo de la muerte: restaura la escala original (la secuencia de pulsos la
+    /// infla), la vida, el estado, los cooldowns y los colliders, y re-coloca el
+    /// agente sobre el navmesh. Vuelve a medir el casco porque hullBounds era de la
+    /// posicion anterior (y los rangos/muzzle se derivan de el).
+    /// </summary>
+    public void ResetForSpawn(Vector3 position, Quaternion rotation)
+    {
+        gameObject.SetActive(true);
+
+        // El agente se apaga antes de mover el transform: reactivarlo ya en la
+        // posicion final evita el warning "not close enough to the NavMesh". Si la
+        // posicion cae fuera, se samplea el navmesh antes de colocarla.
+        if (agent != null)
+        {
+            agent.enabled = false;
+            if (NavMesh.SamplePosition(position, out NavMeshHit hit, 50f, agent.areaMask))
+            {
+                position = hit.position;
+            }
+        }
+
+        transform.SetPositionAndRotation(position, rotation);
+        transform.localScale = baseLocalScale;
+
+        currentHealth = maxHealth;
+        currentState = EnemyState.Idle;
+        lurePosition = null;
+
+        sinkStarted = false;
+        sinkEndTime = 0f;
+        diedNotified = false;
+        hoverChecked = false;
+        hasAimSample = false;
+        nextAttackTime = 0f;
+        nextContactTime = 0f;
+
+        SetCollidersEnabled(true);
+        FitColliderToMesh();
+
+        if (agent != null)
+        {
+            agent.enabled = true;
+            agent.baseOffset = HoverToBaseOffset(hoverHeight);
+        }
+        PlaceOnNavMesh();
+
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+        {
+            agent.ResetPath();
+        }
+
+        Debug.Log($"[{name}] ResetForSpawn en {position}.", this);
     }
 
     private void SpawnDeathExplosion()

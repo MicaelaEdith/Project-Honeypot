@@ -32,7 +32,6 @@ public class HoneyPotActivator : MonoBehaviour
 
     private void Start()
     {
-        Debug.Log($"[HoneyPotActivator] Start: honeypotPrefab={(honeypotPrefab != null ? honeypotPrefab.name : "NULL")}, degreesToActivate={degreesToActivate}, maxHoneypots={maxHoneypots}", this);
         remainingHoneypots = maxHoneypots;
         previousYaw = transform.eulerAngles.y;
         OnHoneypotCountChanged?.Invoke(remainingHoneypots);
@@ -51,10 +50,6 @@ public class HoneyPotActivator : MonoBehaviour
 
         if (throttling)
         {
-            if (accumulatedDegrees > 0f)
-            {
-                Debug.Log($"[HoneyPotActivator] W/S apretado: acumulador reiniciado ({accumulatedDegrees:F1}° descartados).", this);
-            }
             accumulatedDegrees = 0f;
         }
         else if (turning)
@@ -62,7 +57,6 @@ public class HoneyPotActivator : MonoBehaviour
             float yaw = transform.eulerAngles.y;
             float delta = Mathf.Abs(Mathf.DeltaAngle(previousYaw, yaw));
             accumulatedDegrees += delta;
-            Debug.Log($"[HoneyPotActivator] girando: yaw={yaw:F1} Δ={delta:F2} acum={accumulatedDegrees:F1}/{degreesToActivate}", this);
 
             if (accumulatedDegrees >= degreesToActivate)
             {
@@ -72,7 +66,7 @@ public class HoneyPotActivator : MonoBehaviour
         }
         else if (accumulatedDegrees > 0f)
         {
-            Debug.Log($"[HoneyPotActivator] sin girar: acumulador en {accumulatedDegrees:F1}° (no resetea).", this);
+            // acumulador parcial: no resetea hasta tocar W/S
         }
 
         previousYaw = transform.eulerAngles.y;
@@ -93,7 +87,6 @@ public class HoneyPotActivator : MonoBehaviour
 
         if (remainingHoneypots <= 0)
         {
-            Debug.Log("[HoneyPotActivator] No quedan honeypots.", this);
             return;
         }
 
@@ -101,6 +94,5 @@ public class HoneyPotActivator : MonoBehaviour
         remainingHoneypots--;
         nextActivationTime = Time.time + cooldown;
         OnHoneypotCountChanged?.Invoke(remainingHoneypots);
-        Debug.Log($"[HoneyPotActivator] Honeypot spawneado. Quedan: {remainingHoneypots}", this);
     }
 }
