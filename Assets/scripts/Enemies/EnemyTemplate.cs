@@ -4,93 +4,52 @@ using UnityEngine.AI;
 [RequireComponent(typeof(NavMeshAgent))]
 public abstract class EnemyTemplate : MonoBehaviour, IDamagable
 {
-    [Header("Stats")]
-    [Tooltip("Vida maxima del enemigo.")]
+
     [SerializeField] private float maxHealth = 60f;
-    [Tooltip("Distancia desde la cual detecta al player y lo persigue. 0 = se calcula con el tamaño del casco.")]
     [SerializeField] private float detectionRange = 0f;
-    [Tooltip("Distancia a la que entra en estado de ataque. 0 = se calcula con el tamaño del casco.")]
     [SerializeField] protected float attackRange = 0f;
-    [Tooltip("Daño por golpe/proyectil.")]
     [SerializeField] protected float damageAmount = 12f;
     [SerializeField] private float attackCooldown = 1.2f;
-    [Tooltip("Altura de vuelo sobre la navegacion. 0 = pegado al piso.")]
     [SerializeField] private float hoverHeight = 15f;
 
-    [Header("Escala relativa al casco")]
-    [Tooltip("Los FBX vienen con escala raiz enorme (tanque ~200u, naves ~290u), asi que un rango o un proyectil en numeros absolutos queda en cualquier escala. Con estos factores todo se deriva del radio real del casco. Un valor > 0 en el campo absoluto correspondiente pisa al factor.")]
     [SerializeField] private float detectionRangeFactor = 2.5f;
-    [Tooltip("Rango de ataque como multiplicador del radio del casco. attackRange > 0 lo pisa.")]
     [SerializeField] private float attackRangeFactor = 1.5f;
-    [Tooltip("Diametro de la bala como fraccion del radio del casco. projectileScale > 0 lo pisa.")]
     [SerializeField] private float projectileSizeFactor = 0.05f;
-    [Tooltip("Margen extra de la boca del cañon, como fraccion del radio del casco (0 = sin margen).")]
     [SerializeField] private float muzzleMarginFactor = 0.1f;
-    [Tooltip("Segundos que tarda la bala en llegar al objetivo. projectileSpeed > 0 lo pisa.")]
     [SerializeField] private float flightTime = 1.2f;
 
-    /// <summary>Segundos de vuelo configurados, para los prints de diagnostico.</summary>
     protected float FlightTime => flightTime;
-    [Tooltip("Velocidad de los proyectiles en unidades por segundo. 0 = se deriva del tiempo de vuelo.")]
     [SerializeField] private float projectileSpeed = 0f;
-    [Tooltip("Diametro de los proyectiles enemigos en unidades de mundo. 0 = se deriva del casco.")]
     [SerializeField] private float projectileScale = 0f;
 
-    [Header("Proyectil estilo player")]
-    [Tooltip("Mismo prefab que usa el tanque, para que la bala se vea igual. Vacio = se cae en SpawnEnemyProjectile (esfera simple sin VFX).")]
     [SerializeField] private GameObject projectilePrefab;
-    [Tooltip("Mismo VFX de impacto que usa el tanque. Vacio = la bala no genera VFX al impactar.")]
     [SerializeField] private GameObject impactVfxPrefab;
-    [Tooltip("Diametro del VFX de impacto como multiple del diametro de la bala. El prefab ImpactVFX esta authoring para ~5.5u, asi que se reescala a esta medida.")]
     [SerializeField] private float impactVfxDiameterFactor = 2f;
-    [Tooltip("Diametro natural del prefab de VFX de impacto, en unidades de mundo.")]
     [SerializeField] private float impactVfxReferenceDiameter = 5.5f;
-    [Tooltip("Multiplicador extra sobre el VFX de impacto.")]
     [SerializeField] private float impactVfxScale = 1f;
 
-    [Header("Rotacion")]
-    [Tooltip("Si esta activo, rota el cuerpo hacia el player (updateRotation del agente desactivada).")]
     [SerializeField] private bool rotateTowardPlayer = true;
     [SerializeField] private float rotateSpeed = 120f;
-    [Tooltip("Eje local del modelo que apunta hacia el morro (forward visual de la nave).\nDefault (0,0,1). Si el modelo tiene la nariz 'parada' (tilt -90 en X), usa (0,1,0).")]
     [SerializeField] private Vector3 modelForward = Vector3.forward;
 
-    [Header("Choque")]
-    [Tooltip("Si esta activo, daña al player por contacto mientras esta en rango de ataque.")]
     [SerializeField] private bool contactDamage = false;
-    [Tooltip("Alcance del contacto en unidades de mundo. 0 = usa el rango de ataque.")]
     [SerializeField] private float contactRange = 0f;
     [SerializeField] private float contactCooldown = 1f;
 
-    [Header("Muerte")]
-    [Tooltip("VFX propio de la muerte. Vacio = Resources/DeathVFX, y si no existe se cae al VFX de impacto.")]
     [SerializeField] private GameObject deathVfxPrefab;
     [SerializeField] private float deathVfxScaleMultiplier = 5.7f;
-    [Tooltip("Cantidad de explosiones que se instancian al morir (la primera centrada, las demas con offset).")]
     [SerializeField] private int deathVfxExplosionCount = 3;
-    [Tooltip("Demora entre explosiones consecutivas, en segundos.")]
     [SerializeField] private float deathVfxExplosionDelay = 0.12f;
-    [Tooltip("Radio del offset aleatorio de las explosiones secundarias, como fraccion del radio del casco.")]
     [SerializeField] private float deathVfxExplosionSpread = 0.4f;
-    [Tooltip("Multiplica la cantidad de particulas (bursts y rateOverTime) de cada explosion.")]
     [SerializeField] private float deathVfxParticleMultiplier = 4f;
-    [Tooltip("Cuanto se agranda la nave antes de estallar (1 = no se agranda).")]
     [SerializeField] private float deathSwellScale = 1.15f;
-    [Tooltip("Cantidad de pulsos (agranda/achica) antes de estallar; estalla en el ultimo pico.")]
     [SerializeField] private int deathSwellPulses = 3;
-    [Tooltip("Duracion de la secuencia de pulsos previa a la explosion, en segundos.")]
     [SerializeField] private float deathSwellDuration = 0.5f;
 
-    [Header("Separacion")]
-    [Tooltip("Radio de evitacion entre naves como fraccion del radio real del casco (1 = cascos apenas sin tocarse).")]
     [SerializeField] private float avoidanceRadiusFactor = 1f;
 
-    [Header("Bamboleo")]
-    [Tooltip("Amplitud del vaiven lateral al perseguir, como fraccion del radio del casco. 0 = se acerca en linea recta.")]
     [SerializeField] private float weaveAmplitudeFactor = 0f;
-    [Tooltip("Velocidad del vaiven en radianes por segundo. ~2 = un zigzag cada 3 segundos.")]
     [SerializeField] private float weaveFrequency = 2f;
-    [Tooltip("Distancia (fraccion del radio del casco) dentro de la cual el vaiven se apaga para encarar el golpe. 0 = nunca se apaga.")]
     [SerializeField] private float weaveFadeDistanceFactor = 0.5f;
 
     protected NavMeshAgent agent;
@@ -99,15 +58,8 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
     protected bool IsLured => lurePosition.HasValue;
     public EnemyState CurrentState => currentState;
 
-    /// <summary>
-    /// Se dispara UNA sola vez, al terminar la secuencia de muerte (despues de la
-    /// explosion, no en health &lt;= 0). Es el enganche del GameManager para contar
-    /// bajas sin acoplarse: cuando el campo queda realmente limpio, no cuando la
-    /// nave empieza a explotar.
-    /// </summary>
     public event System.Action<EnemyTemplate> Died;
 
-    /// <summary>Pool dueno de esta instancia. Vacio = la muerte destruye el objeto.</summary>
     public EnemyPool Pool { get; private set; }
 
     public void AttachPool(EnemyPool owner)
@@ -115,13 +67,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         Pool = owner;
     }
 
-    /// <summary>
-    /// Direccion horizontal hacia la que apunta el morro de la nave (modelForward
-    /// proyectado sobre el plano XZ). Nunca devuelve un vector de mundo constante:
-    /// si el eje configurado colapsa a vertical prueba ejes locales alternativos,
-    /// luego la velocidad real del agente y, si nada da, Vector3.zero (no girar).
-    /// Asi un modelForward mal configurado jamas produce giro infinito.
-    /// </summary>
     protected Vector3 ForwardFlat
     {
         get
@@ -151,7 +96,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
                     return flat.normalized;
                 }
             }
-
             return Vector3.zero;
         }
     }
@@ -186,21 +130,11 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
     private float weavePhase;
     private bool diedNotified;
 
-    /// <summary>
-    /// Radio horizontal del casco en unidades de mundo, medido sobre los bounds
-    /// reales de los renderers. Es la referencia de escala del juego: los FBX
-    /// vienen con escala raiz de 100~250 (tanque ~200u, naves ~290u), asi que
-    /// todo lo relativo (rangos, tamaño de bala, boca del cañon) se deriva de
-    /// aca en vez de usar numeros absolutos que quedan en cualquier escala.
-    /// </summary>
     protected float HullRadius()
     {
         return Mathf.Max(hullRadius, 0.0001f);
     }
 
-    /// <summary>
-    /// Bounds del casco en unidades de mundo (mismo origen que HullRadius).
-    /// </summary>
     protected Bounds HullBounds()
     {
         return hullBounds;
@@ -216,9 +150,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         return attackRange > 0f ? attackRange : HullRadius() * Mathf.Max(attackRangeFactor, 0f);
     }
 
-    /// <summary>
-    /// Diametro de la bala en unidades de mundo.
-    /// </summary>
     protected float ProjectileDiameter()
     {
         if (projectileScale > 0f)
@@ -228,12 +159,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         return HullRadius() * Mathf.Max(projectileSizeFactor, 0f);
     }
 
-    /// <summary>
-    /// Velocidad para que la bala llegue al objetivo en flightTime segundos.
-    /// Con velocidad fija a 90~150 u/s la bala cruzaba los 30u de attackRange en
-    /// 0.2s y no se veía casi nada; normalizando el tiempo de vuelo se ve siempre
-    /// el mismo tiempo, sin importar la distancia ni la escala del modelo.
-    /// </summary>
     protected float ProjectileSpeedTo(Vector3 from, Vector3 to)
     {
         if (projectileSpeed > 0f)
@@ -244,12 +169,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         return Mathf.Max(Vector3.Distance(from, to) / seconds, 0.0001f);
     }
 
-    /// <summary>
-    /// Distancia del centro hasta la boca del cañon en esa direccion. Con el valor
-    /// manual en 0 se usa el punto de apoyo del AABB del casco mas un margen: la
-    /// bala nace siempre fuera del hull. Adentro, la fisica la expulsa en cualquier
-    /// direccion y EnemyProjectile la destruye al primer contacto con cualquier cosa.
-    /// </summary>
     protected float MuzzleDistanceAlong(Vector3 direction, float manualDistance)
     {
         if (manualDistance > 0f)
@@ -266,11 +185,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         return support * (1f + Mathf.Max(muzzleMarginFactor, 0f));
     }
 
-    /// <summary>
-    /// Escala del VFX de impacto para que mida impactVfxDiameterFactor veces la bala.
-    /// Misma formula que CannonController.ImpactVfxScale, para que el prefab del
-    /// tanque y el del enemigo den exactamente la misma nube.
-    /// </summary>
     protected float ImpactVfxScale(float shellDiameter)
     {
         float reference = Mathf.Max(impactVfxReferenceDiameter, 0.0001f);
@@ -278,11 +192,7 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         return ratio * Mathf.Max(impactVfxScale, 0f);
     }
 
-    /// <summary>
-    /// Diametro en unidades de mundo de un objeto recien instanciado, medido sobre
-    /// sus colliders (ya incluye la escala local que traiga el prefab). Permite
-    /// corregir por multiplicacion en vez de pisar localScale.
-    /// </summary>
+
     protected static float WorldDiameter(GameObject target)
     {
         float max = 0f;
@@ -294,15 +204,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         return max;
     }
 
-    /// <summary>
-    /// <summary>
-    /// Punto al que apuntarle al player: el centro de sus renderers, igual que
-    /// HullBounds() para los enemigos. No se usa el CharacterController porque su
-    /// centro se guarda en unidades locales del player y el tanque tiene el modelo
-    /// corrido 4.35u del pivote: con el CharacterController la nave apuntaba al
-    /// aire. Se recalcula en cada disparo (cada 3s) porque el tanque se mueve:
-    /// cachear el punto en mundo lo dejaba viejo.
-    /// </summary>
     protected Vector3 PlayerAimPoint()
     {
         if (player == null)
@@ -319,10 +220,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         return PlayerControllerCenter();
     }
 
-    /// <summary>
-    /// Bounds del player en unidades de mundo, o un rect vacio si no tiene renderers
-    /// (recien instanciado, o con los modelos apagados).
-    /// </summary>
     protected Bounds PlayerBounds()
     {
         Bounds bounds = default;
@@ -361,33 +258,17 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         return player.position + player.up * (controller.center.y + controller.height * 0.5f) * scale;
     }
 
-    /// <summary>
-    /// Centro horizontal del casco a la altura real de los renderers. El pivote del
-    /// enemigo esta apoyado en el navmesh, asi que sin esto la boca del cañon
-    /// nace varias unidades por debajo del centro de la nave.
-    /// </summary>
     protected Vector3 HullCenter()
     {
         Bounds bounds = HullBounds();
         return bounds.size.sqrMagnitude > 0.0001f ? bounds.center : transform.position;
     }
 
-    /// <summary>
-    /// Awake corre siempre al instanciar, incluso si el pool la desactiva enseguida
-    /// (Instantiate crea activa y el pool la apaga despues). Por eso aca se toman las
-    /// referencias y la escala original que ResetForSpawn necesita: si dependiera de
-    /// Start, el primer Spawn (que reactiva antes de que Start haya corrido) fallaria.
-    /// </summary>
     protected virtual void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
         baseLocalScale = transform.localScale;
-        // El prefab hornea la inclinacion del modelo en localRotation (la rotacion P:
-        // techo arriba, morro adelante). ResetForSpawn la necesita para no pisar la
-        // pose al recolocar: se captura aca porque Awake corre al instanciar, con la
-        // localRotation del prefab intacta (aun bajo un padre rotado).
         baseLocalRotation = transform.localRotation;
-        // Fase propia para que varias naves no bamboleen sincronizadas.
         weavePhase = Random.value * Mathf.PI * 2f;
     }
 
@@ -395,31 +276,17 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
     {
         agent = GetComponent<NavMeshAgent>();
         agent.updateRotation = !rotateTowardPlayer;
-        // updateUpAxis es independiente de updateRotation: en true el agente re-alinea
-        // el up del transform a la normal de la superficie cada frame, y sobre una
-        // ladera del navmesh tumba la nave de costado y la deja volteada. Las naves
-        // siempre van con el up al mundo; la inclinacion la aporta el modelo.
         agent.updateUpAxis = false;
         agent.baseOffset = HoverToBaseOffset(hoverHeight);
         player = FindPlayer();
         currentHealth = maxHealth;
         FitColliderToMesh();
-        // El radio de evitacion del agente multiplica por la escala raiz (misma
-        // regla que HoverToBaseOffset); con los valores de prefab (~0.4u de mundo)
-        // las naves se veian como puntos y se atravesaban. Con el radio real del
-        // casco la evitacion built-in las hace curvar y rodearse.
         float rootScale = Mathf.Max(Mathf.Abs(transform.lossyScale.x), Mathf.Abs(transform.lossyScale.z), 0.0001f);
         agent.radius = HullRadius() * Mathf.Max(avoidanceRadiusFactor, 0f) / rootScale;
         PlaceOnNavMesh();
         ResolvePlayerStyleAssets();
     }
 
-    /// <summary>
-    /// Prefabs con los que dispara este enemigo. Si los campos del Inspector estan
-    /// vacios se toman del cañon del tanque (CannonController), para que la nave
-    /// use el mismo prefab de bala y el mismo VFX de impacto sin tener que cablearlos
-    /// uno por uno en cada prefab enemigo. Lo explicito del Inspector manda.
-    /// </summary>
     private void ResolvePlayerStyleAssets()
     {
         playerStyleProjectile = projectilePrefab;
@@ -451,14 +318,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         }
     }
 
-    /// <summary>
-    /// El NavMeshAgent multiplica radius/height/baseOffset por la escala del
-    /// transform (por eso el radio de nave02 es 0.003 y no 0.5). Los enemigos
-    /// vienen de FBX con escala raiz enorme (nave02 ~180), asi que asignar el
-    /// hoverHeight tal cual lo convierte en unidades de mundo: 1.5 x 180.43 =
-    /// 270u de altura y la nave se va volando. Convertimos de unidades de
-    /// mundo (que es lo que dice el tooltip) a unidades locales del agente.
-    /// </summary>
     private float HoverToBaseOffset(float worldHover)
     {
         if (worldHover <= 0f)
@@ -470,10 +329,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         return worldHover / scale;
     }
 
-    /// <summary>
-    /// Chequea una sola vez que la altura real sobre el navmesh sea la pedida.
-    /// Si vuelve a dispararse el desfase es la escala del agente, no el navmesh.
-    /// </summary>
     private void VerifyHoverOffset()
     {
         hoverChecked = true;
@@ -571,11 +426,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         damagable?.TakeDamage(amount);
     }
 
-    /// <summary>
-    /// Crea la bala enemiga. El tamaño y la velocidad no se reciben: se derivan del
-    /// casco y de la distancia al objetivo, asi ningun cañon puede disparar con
-    /// numeros absolutos que no correspondan a la escala de la escena.
-    /// </summary>
     protected GameObject SpawnEnemyProjectile(Vector3 position, Vector3 direction, Vector3 target, float damage)
     {
         GameObject projectile = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -590,9 +440,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         {
             collider.isTrigger = false;
 
-            // La bala no puede chocar con el casco del enemigo que la dispara: si
-            // nace pegada al hull la física la expulsa en cualquier dirección y
-            // EnemyProjectile la destruye al primer contacto con cualquier cosa.
             foreach (Collider own in GetComponentsInChildren<Collider>())
             {
                 Physics.IgnoreCollision(collider, own, true);
@@ -615,14 +462,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         return projectile;
     }
 
-    /// <summary>
-    /// Crea la bala exactamente igual a la del tanque: mismo prefab, mismo escalado
-    /// por medicion del clon, mismo VFX de impacto y mismo tiempo de vuelo. Lo unico
-    /// que cambia es que sale con playerOnly, asi una nave no lastima a las otras ni
-    /// se mata con su propio disparo.
-    /// Si no hay prefab de bala disponible cae en SpawnEnemyProjectile (esfera simple
-    /// sin VFX), para que un enemigo mal configurado siga disparando igual.
-    /// </summary>
     protected GameObject SpawnPlayerStyleProjectile(Vector3 position, Vector3 direction, Vector3 target, float damage)
     {
         if (playerStyleProjectile == null)
@@ -656,8 +495,7 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         {
             body = projectile.AddComponent<Rigidbody>();
         }
-        // El prefab del tanque viene con useGravity en true: sin esto la bala enemiga
-        // se cae al piso en vez de ir recta.
+
         body.useGravity = false;
         body.isKinematic = false;
         body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
@@ -676,10 +514,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         return projectile;
     }
 
-    /// <summary>
-    /// Quaternion.LookRotation elige mal el up cuando la direccion es casi vertical
-    /// (tira null reference). Aca se cambia el up de referencia en ese caso.
-    /// </summary>
     protected static Quaternion LookRotationSafe(Vector3 direction)
     {
         Vector3 normalized = direction.normalized;
@@ -733,13 +567,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         RotateIfNeeded(TargetPosition());
     }
 
-    /// <summary>
-    /// Destino del zigzag: compensa el objetivo lateralmente con una senoidal para
-    /// que la nave no se acerque en linea recta. La amplitud es una fraccion del
-    /// radio del casco y se apaga dentro de weaveFadeDistanceFactor radios, para que
-    /// enderece y encare el golpe en vez de orbitar al tanque. Los chequeos de rango
-    /// (deteccion, ataque, contacto) siguen usando el objetivo real, no este punto.
-    /// </summary>
     private Vector3 WeavePoint(Vector3 target)
     {
         float amplitude = HullRadius() * Mathf.Max(weaveAmplitudeFactor, 0f);
@@ -834,12 +661,7 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         }
     }
 
-    /// <summary>
-    /// Cierra la secuencia de muerte. Avisa a quien cuente bajas (Died) y despues
-    /// devuelve la instancia al pool, o la destruye si no esta pooleada. El orden
-    /// importa: el GameManager se entera cuando la explosion ya salio, asi el
-    /// siguiente indice no arranca con la nave todavia en el aire.
-    /// </summary>
+
     private void FinishDeath()
     {
         if (diedNotified)
@@ -860,20 +682,11 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         }
     }
 
-    /// <summary>
-    /// Deja la instancia lista para volver a jugar en otra posicion (pooling). Es el
-    /// espejo de la muerte: restaura la escala original (la secuencia de pulsos la
-    /// infla), la vida, el estado, los cooldowns y los colliders, y re-coloca el
-    /// agente sobre el navmesh. Vuelve a medir el casco porque hullBounds era de la
-    /// posicion anterior (y los rangos/muzzle se derivan de el).
-    /// </summary>
     public void ResetForSpawn(Vector3 position, Quaternion rotation)
     {
         gameObject.SetActive(true);
 
-        // El agente se apaga antes de mover el transform: reactivarlo ya en la
-        // posicion final evita el warning "not close enough to the NavMesh". Si la
-        // posicion cae fuera, se samplea el navmesh antes de colocarla.
+
         if (agent != null)
         {
             agent.enabled = false;
@@ -917,16 +730,7 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         Debug.Log($"[{name}] ResetForSpawn en {position}.", this);
     }
 
-    /// <summary>
-    /// Rotacion de mundo para recolocar la instancia: se conserva la pose horneada
-    /// del prefab (baseLocalRotation, la P con techo arriba y morro adelante) y se le
-    /// compone encima solo el rumbo (yaw) que pide el SpawnPoint.
-    ///
-    /// No se puede usar la rotacion cruda del SpawnPoint tal cual: pisaria la P y el
-    /// modelo quedaria en identidad = de costado (el bug del pool). Y el SpawnPoint
-    /// puede arrastrar pitch/roll de cuando se lo coloco en escena, asi que de esa
-    /// rotacion solo se toma la direccion horizontal.
-    /// </summary>
+
     private Quaternion SpawnRotation(Quaternion spawnRotation)
     {
         Vector3 forward = spawnRotation * Vector3.forward;
@@ -999,20 +803,11 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         }
     }
 
-    /// <summary>Hook para que GameManager (Etapa D) cuente bajas sin acoplarse. </summary>
     protected virtual void OnDeathStarted()
     {
     }
 
-    /// <summary>
-    /// Dibuja el morro resuelto (modelForward proyectado al piso), el wire del casco
-    /// y un punto en el centro de cada renderer hijo. Con modelForward mal puesto
-    /// (estos FBX entran espejados en X, asi que el morro real puede ser el eje
-    /// contrario) la nave persigue al player pero se ve de espaldas; esto lo
-    /// muestra en 2 segundos en vez de adivinarlo.
-    /// Mide los bounds al vuelo porque hullBounds/hullRadius solo se llenan en
-    /// Start(), y el gizmo tiene que servir con el Editor cerrado.
-    /// </summary>
+
     protected void OnDrawGizmosSelected()
     {
         Vector3 nose = ForwardFlat;
@@ -1057,14 +852,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         return ComputeHullBounds();
     }
 
-    /// <summary>
-    /// Bounds mundiales del casco a partir de los localBounds de cada Renderer
-    /// transformados por su localToWorldMatrix (las 8 esquinas del AABB local).
-    /// No se puede usar Renderer.bounds aca: Unity lo recalcula de forma diferida y
-    /// justo despues de instanciar/activar una instancia del pool devuelve bounds
-    /// viejos o sin escalar (daba un casco ~90x mas chico). Esto si refleja el
-    /// transform actual de forma sincronica.
-    /// </summary>
     private Bounds ComputeHullBounds(Renderer[] renderers)
     {
         if (renderers == null || renderers.Length == 0)
@@ -1123,8 +910,7 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
 
     private void TryContactDamage(float distance)
     {
-        // 40u de contacto absolutos quedan mas adentro que el propio casco
-        // (radio ~145u), asi que el contacto se mide contra el rango de ataque.
+
         float reach = contactRange > 0f ? contactRange : AttackRange();
 
         if (!contactDamage || distance > reach || Time.time < nextContactTime)
@@ -1167,26 +953,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         transform.Rotate(Vector3.up, step, Space.World);
     }
 
-    /// Punto al que se acerca y rota la nave: el CUERPO del player (centro de sus
-    /// bounds), no su pivote. El tanque tiene el FBX del modelo corrido 4.35u del
-    /// origen (m_LocalPosition 3.4359/0.01/2.667 en el Player), asi que apuntar al
-    /// player.position hacia que la nave le apuntaba al aire: con el tanque a 4.5u
-    /// de la boca eso son 40 grados de error de rumbo y ningun tiro llegaba.
-    /// Tambien corrige los rangos de deteccion/ataque/contacto, que midian hasta la
-    /// pivote. La trampa de miel manda una posicion explicita y manda sobre todo.
-    /// </summary>
-    /// Anticipa donde va a estar el player cuando llegue la bala.
-    ///
-    /// El tiempo de vuelo esta normalizado (ProjectileSpeedTo = distancia /
-    /// flightTime), asi que un disparo siempre tarda ~1s en llegar. Sin adelante la
-    /// nave apunta a donde el tanque ESTABA y falla practicamente siempre contra un
-    /// blanco que se mueve: el tanque mide 2.4u y en 1.05s recorre varios cuerpos.
-    /// Se estima la velocidad del player con dos muestras consecutivas del punto
-    /// apuntado (el tanque va con CharacterController, no hay Rigidbody que leer).
-    ///
-    /// No-defauda el flanqueo: si el tanque se mueve para sacarse de la linea de
-    /// tiro, el adelanto lo apunta a donde se va a sacar igual.
-    /// </summary>
     protected Vector3 LeadAimPoint(float seconds)
     {
         Vector3 aim = PlayerAimPoint();
@@ -1216,11 +982,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         return player != null ? PlayerAimPoint() : transform.position;
     }
 
-    /// <summary>
-    /// Coloca al agente sobre el navmesh mas cercano a su spawn si este cayo
-    /// fuera (por escalas/posiciones manuales). Evita "SetDestination can
-    /// only be called on an active agent that has been placed on a NavMesh".
-    /// </summary>
     private void PlaceOnNavMesh()
     {
         if (agent == null || agent.isOnNavMesh)
@@ -1267,11 +1028,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         }
     }
 
-    /// <summary>
-    /// Redimensiona el collider del enemigo para que cubra el mesh visible.
-    /// Evita que las balas atraviesen el casco cuando el collider quedo
-    /// chico por escalas del modelo/prefab.
-    /// </summary>
     private void FitColliderToMesh()
     {
         Renderer[] renderers = GetComponentsInChildren<Renderer>();
@@ -1282,8 +1038,6 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
 
         Bounds worldBounds = ComputeHullBounds(renderers);
 
-        // Cacheado antes de tocar el collider: es la referencia de escala que usan
-        // rangos, proyectiles y bocas de cañon.
         hullBounds = worldBounds;
         hullRadius = Mathf.Max(worldBounds.extents.x, worldBounds.extents.z);
 

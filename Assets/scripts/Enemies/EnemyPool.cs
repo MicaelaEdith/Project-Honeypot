@@ -2,26 +2,12 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Pool de enemigos por prefab. Pre-calienta una cantidad de instancias por prefab
-/// al arrancar y las reutiliza: cuando un enemigo termina su secuencia de muerte,
-/// EnemyTemplate avisa aca y la instancia vuelve a la cola en vez de destruirse.
-///
-/// El maximo a pre-calentar por prefab es el maximo concurrente de la oleada mas
-/// poblada (TankShip 4 / Shooter 5 / Melee 5 en la tabla de oleadas). Todo editable
-/// por Inspector: si una oleada pide mas de lo pre-calentado, Spawn instancia una
-/// extra y la agrega al pool.
-///
-/// No se suscribe al evento Died: EnemyTemplate llama Reclaim() directo al cerrar
-/// la muerte. Died queda libre para que el GameManager cuente bajas sin acoplarse.
-/// </summary>
 [DisallowMultipleComponent]
 public class EnemyPool : MonoBehaviour
 {
     [Serializable]
     public class PoolConfig
     {
-        [Tooltip("Prefab del enemigo (nave00, nave01, nave02).")]
         public GameObject prefab;
 
         [Min(0)]
@@ -29,12 +15,8 @@ public class EnemyPool : MonoBehaviour
         public int prewarm = 4;
     }
 
-    [Header("Pools")]
-    [Tooltip("Un elemento por prefab de enemigo. Prewarm = maximo concurrente esperado.")]
     [SerializeField] private List<PoolConfig> pools = new List<PoolConfig>();
 
-    [Header("Jerarquia")]
-    [Tooltip("Padre de las instancias inactivas. Vacio = este mismo GameObject.")]
     [SerializeField] private Transform poolRoot;
 
     private readonly Dictionary<GameObject, Queue<EnemyTemplate>> available = new Dictionary<GameObject, Queue<EnemyTemplate>>();
@@ -94,10 +76,6 @@ public class EnemyPool : MonoBehaviour
         return template;
     }
 
-    /// <summary>
-    /// Saca una instancia (de la cola o nueva si la cola esta vacia) y la deja lista
-    /// en la posicion pedida. Devuelve null si el prefab es invalido.
-    /// </summary>
     public EnemyTemplate Spawn(GameObject prefab, Vector3 position, Quaternion rotation)
     {
         if (prefab == null)
@@ -132,9 +110,6 @@ public class EnemyPool : MonoBehaviour
         return template;
     }
 
-    /// <summary>
-    /// Devuelve una instancia al pool. La llama EnemyTemplate al terminar la muerte.
-    /// </summary>
     public void Reclaim(EnemyTemplate template)
     {
         if (template == null)

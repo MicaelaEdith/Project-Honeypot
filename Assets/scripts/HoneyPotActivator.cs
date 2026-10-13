@@ -4,21 +4,11 @@ using UnityEngine.InputSystem;
 [DisallowMultipleComponent]
 public class HoneyPotActivator : MonoBehaviour
 {
-    [Header("Honeypot")]
-    [Tooltip("Prefab del honeypot que se instancia al activar.")]
+
     [SerializeField] private GameObject honeypotPrefab;
-
-    [Tooltip("Cuantos honeypots tiene el player al iniciar.")]
     [SerializeField] private int maxHoneypots = 10;
-
-    [Header("Activacion")]
-    [Tooltip("Grados de giro acumulados (sin W/S) necesarios para disparar la trampa.")]
     [SerializeField] private float degreesToActivate = 360f;
-
-    [Tooltip("Offset desde el pivote del tanque al spawnear el honeypot.")]
     [SerializeField] private Vector3 spawnOffset = Vector3.zero;
-
-    [Tooltip("Tiempo minimo entre dos activaciones.")]
     [SerializeField] private float cooldown = 0.3f;
 
     public event System.Action<int> OnHoneypotCountChanged;

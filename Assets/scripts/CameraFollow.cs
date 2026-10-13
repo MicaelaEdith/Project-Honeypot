@@ -1,41 +1,19 @@
 using UnityEngine;
 
-/// <summary>
-/// Camara de persecucion "detras del morro": se ubica siempre por detras
-/// del rumbo del tanque (MovingForward) y lo mira, manteniendo el horizonte
-/// nivelado. Es orgánica al girar y desliza suavemente en teleports
-/// (respawn), sin heredar la rotacion del player. Si un obstaculo de
-/// Decor tapa la linea player-camara, se levanta (y se inclina en X)
-/// proporcionalmente, y como ultimo recurso se acerca al obstaculo.
-/// </summary>
 public class CameraFollow : MonoBehaviour
 {
-    [Header("Referencia")]
-    [Tooltip("Objetivo a seguir. Si queda vacio se busca el TankController.")]
+    
     [SerializeField] private Transform target;
-
-    [Header("Camara")]
-    [Tooltip("Distancia horizontal detras del morro del tanque.")]
     [SerializeField] private float distance = 30f;
-    [Tooltip("Altura de la camara sobre el tanque.")]
     [SerializeField] private float height = 17.5f;
-    [Tooltip("Altura del punto del tanque que la camara enfoca.")]
     [SerializeField] private float lookHeight = 8f;
-    [Tooltip("Suavizado del movimiento y la rotacion. 0 = pegada instantanea.")]
     [SerializeField] private float smoothing = 12f;
-    [Tooltip("Velocidad maxima del movimiento de la camara (u/s). Limita el desliz en teleports/respawn.")]
     [SerializeField] private float maxSpeed = 60f;
 
-    [Header("Obstaculos")]
-    [Tooltip("Sensor de obstaculos del player. Vacio = se busca en el target.")]
     [SerializeField] private PlayerObstacleSensor obstacleSensor;
-    [Tooltip("Levantamiento de la camara proporcional a la penetracion del rayo player-camara (u por u).")]
     [SerializeField] private float liftFactor = 1f;
-    [Tooltip("Levantamiento maximo de la camara (u).")]
     [SerializeField] private float maxLift = 20f;
-    [Tooltip("Si con el levantamiento maximo la vista sigue tapada, acercar la camara al obstaculo.")]
     [SerializeField] private bool pullInWhenBlocked = true;
-    [Tooltip("Distancia minima entre la camara y el obstaculo al acercarla.")]
     [SerializeField] private float collisionPadding = 1f;
 
     private Vector3 velocity;
@@ -85,13 +63,7 @@ public class CameraFollow : MonoBehaviour
             smoothing * Time.deltaTime);
     }
 
-    /// <summary>
-    /// Reacomodo de la camara ante obstaculos: si el rayo
-    /// player-camara choca, levanta la camara proporcionalmente
-    /// (al seguir mirando al mismo punto, la rotacion en X se
-    /// inclina sola) y, si con el levantamiento maximo la vista
-    /// sigue tapada, la acerca al obstaculo.
-    /// </summary>
+
     private Vector3 AdjustForObstacles(Vector3 origin, Vector3 desired)
     {
         if (obstacleSensor == null)

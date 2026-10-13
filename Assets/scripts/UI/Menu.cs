@@ -4,16 +4,13 @@ using UnityEngine.SceneManagement;
 
 public class MenuController : MonoBehaviour
 {
-    [Header("Botones")]
     public Button btn_play;
     public Button btn_settings;
     public Button btn_quit;
     public Button btn_quitSettings;
 
-    [Header("Panel Settings")]
     public GameObject panel_settings;
 
-    [Header("Escena")]
     public string escena_a_cargar;
 
     private void Start()

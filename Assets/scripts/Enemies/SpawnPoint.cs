@@ -1,15 +1,5 @@
 using UnityEngine;
 
-/// <summary>
-/// Marcador de donde nace un enemigo. Es un empty en la escena, sin logica: solo
-/// expone la posicion y la rotacion de salida, y dibuja un gizmo para ubicarlo de
-/// un vistazo. Los WaveCheckpoint referencian el grupo de SpawnPoint que usan, y
-/// el GameManager reparte los enemigos de la oleada en round-robin sobre ese grupo.
-///
-/// Va separado de WaveCheckpoint a proposito: el punto de gatillo (donde entra el
-/// player) y el punto de spawn (donde aparece la nave) casi nunca son el mismo
-/// lugar. Con checkpoints por rama, cada rama referencia sus propios SpawnPoint.
-/// </summary>
 [DisallowMultipleComponent]
 public class SpawnPoint : MonoBehaviour
 {

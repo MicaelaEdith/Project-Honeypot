@@ -1,22 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>
-/// Barra de vida del tanque.
-///
-/// Anima el ANCHO del RectTransform, no el fillAmount del Image, y a proposito:
-/// en el fuente de uGUI, Image.OnPopulateMesh hace esto primero
-///
-///     if (activeSprite == null) { base.OnPopulateMesh(toFill); return; }
-///
-/// o sea que si el Image no tiene sprite, fillAmount se ignora por completo y se
-/// dibuja el rectangulo entero. Una barra de color solido no necesita ninguna
-/// imagen, asi que pedirle un sprite solo para que el relleno funcione seria
-/// agregar un asset y una dependencia al pedo.
-///
-/// El texto es opcional (si no esta asignado no pasa nada), asi que si no lo
-/// queres en pantalla se puede borrar el objeto del todo.
-/// </summary>
 [DisallowMultipleComponent]
 public class HealthBarView : MonoBehaviour
 {
@@ -31,7 +15,6 @@ public class HealthBarView : MonoBehaviour
 
     private RectTransform fillRect;
 
-    /// <summary>Ancho con la barra llena. Se mide una vez y de ahi se escala.</summary>
     private float fullWidth;
 
     private float targetFill = 1f;
@@ -54,8 +37,6 @@ public class HealthBarView : MonoBehaviour
     {
         if (fillRect != null)
         {
-            // El RectTransform del Fill viene con anchors (0,0)-(0,1), asi que
-            // sizeDelta.x ES el ancho y no hay que hacer cuentas con el padre.
             fullWidth = fillRect.sizeDelta.x;
         }
 

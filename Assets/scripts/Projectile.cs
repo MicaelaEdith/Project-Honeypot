@@ -5,9 +5,7 @@ public class Projectile : MonoBehaviour
 {
     [SerializeField] private float lifeTime = 5f;
     [SerializeField] private float impactVfxLifeTime = 2.5f;
-    [Tooltip("Daño que aplica al impactar un IDamagable. Lo pisa el enemigo al instanciar su bala.")]
     public float damage = 10f;
-    [Tooltip("Si esta activo solo se aplica daño al TankController y no a cualquier IDamagable. Lo activan las balas enemigas que reutilizan este prefab: sin el filtro una nave lastimaria a las otras y se mataria con su propio disparo.")]
     public bool playerOnly;
 
     public GameObject impactVfx;

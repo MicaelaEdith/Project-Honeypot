@@ -3,14 +3,9 @@ using UnityEngine;
 
 public class HoneyTrap : MonoBehaviour
 {
-    [Header("Detonacion")]
-    [Tooltip("Radio dentro del cual el enemigo activa la trampa.")]
     [SerializeField] private float activateRadius = 2.5f;
 
-    [Header("Atraccion")]
-    [Tooltip("Radio en unidades de mundo dentro del cual los enemigos persiguen el honeypot.")]
     [SerializeField] private float attractRadius = 30f;
-    [Tooltip("Segundos entre escaneos de enemigos cercanos.")]
     [SerializeField] private float scanInterval = 0.2f;
 
     private readonly HashSet<EnemyTemplate> luredEnemies = new HashSet<EnemyTemplate>();

@@ -1,12 +1,5 @@
 using UnityEngine;
 
-/// <summary>
-/// Sensor de obstaculos del jugador: raycast horizontales en los ejes
-/// del tanque (y sus diagonales) contra la capa Decor, mas un rayo
-/// dedicado a la linea player-camara. El casco se mide una vez sobre
-/// los renderers reales (incluido el cañon) para saber donde termina
-/// el casco visual, no solo el collider (que es mas chico).
-/// </summary>
 [DisallowMultipleComponent]
 public class PlayerObstacleSensor : MonoBehaviour
 {
@@ -42,10 +35,6 @@ public class PlayerObstacleSensor : MonoBehaviour
         ComputeHull();
     }
 
-    /// <summary>
-    /// Tira los rayos desde el centro del casco. Llamar cada frame
-    /// despues del giro del tanque y antes de mover (TankController).
-    /// </summary>
     public void Refresh(Vector3 forward)
     {
         Vector3 f = forward;
@@ -90,18 +79,11 @@ public class PlayerObstacleSensor : MonoBehaviour
 
     public float ReadingDistance(int index) => readings[index].distance;
 
-    /// <summary>
-    /// Centro del casco en el mundo (altura media del tanque).
-    /// </summary>
     public Vector3 HullCenterWorld()
     {
         return hasHull ? transform.TransformPoint(hullLocal.center) : transform.position;
     }
 
-    /// <summary>
-    /// Cuanto mide el casco desde su centro hasta el borde en la
-    /// direccion indicada (proyeccion del casco sobre esa direccion).
-    /// </summary>
     public float ExtentAlong(Vector3 direction)
     {
         Vector3 d = direction;
@@ -117,10 +99,7 @@ public class PlayerObstacleSensor : MonoBehaviour
              + Mathf.Abs(Vector3.Dot(d, transform.forward)) * hullLocal.extents.z;
     }
 
-    /// <summary>
-    /// Rayo desde un origen hasta un destino. Devuelve true y la
-    /// distancia del impacto si hay un obstaculo en el camino.
-    /// </summary>
+
     public bool RaycastTowards(Vector3 origin, Vector3 destination, out float hitDistance)
     {
         Vector3 direction = destination - origin;
@@ -163,9 +142,7 @@ public class PlayerObstacleSensor : MonoBehaviour
             return;
         }
 
-        // El AABB mundial medido en Start (el casco no cambia de
-        // forma en runtime) se lleva al espacio local del tanque
-        // transformando sus 8 esquinas y encapsulandolas.
+
         Vector3 center = world.center;
         Vector3 extents = world.extents;
         Bounds local = new Bounds(transform.InverseTransformPoint(center), Vector3.zero);

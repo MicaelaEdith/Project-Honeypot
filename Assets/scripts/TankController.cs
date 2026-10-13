@@ -5,32 +5,23 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(CharacterController))]
 public class TankController : MonoBehaviour, IDamagable, IHealth
 {
-    [Header("Movimiento")]
-    [Tooltip("Velocidad de avance/retroceso en unidades por segundo.")]
+
     [SerializeField] private float moveSpeed = 20f;
-    [Tooltip("Velocidad de giro del casco en grados por segundo.")]
     [SerializeField] private float turnSpeed = 90f;
-    [Tooltip("Aceleracion de caida para mantener el tanque apoyado.")]
     [SerializeField] private float gravity = 40f;
     [SerializeField] private bool invertForward = false;
     [SerializeField] private bool invertTurn = false;
-
-    [Header("Frente del casco")]
-    [Tooltip("Dejar en cero para detectarlo solo a partir del cañon.")]
     [SerializeField] private Vector3 bodyForwardLocal = Vector3.zero;
 
-    [Header("Collider")]
     [SerializeField] private bool autoFitController = true;
     [Range(0.5f, 1f)]
     [SerializeField] private float fitWidthFactor = 0.8f;
 
-    [Header("Obstaculos")]
-    [Tooltip("Margen de seguridad con obstaculos: frena antes de que el casco los toque.")]
     [SerializeField] private float obstacleStopMargin = 0.5f;
 
-    [Header("Vida")]
-    [Tooltip("Vida maxima del tanque.")]
     [SerializeField] private float maxHealth = 100f;
+    [SerializeField] private int maxRespawns = 3;
+    [SerializeField] private Transform spawnPointTransform;
 
     private CharacterController controller;
     private CannonController cannon;
@@ -39,23 +30,18 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
     private float verticalSpeed;
     private float currentHealth;
     private Vector3 spawnPoint;
+    private Quaternion spawnRotation = Quaternion.identity;
+    private int respawnsUsed;
 
     public float CurrentHealth => currentHealth;
     public float MaxHealth => maxHealth;
+    public int RespawnsUsed => respawnsUsed;
+    public int MaxRespawns => maxRespawns;
+    public int RespawnsRemaining => Mathf.Max(maxRespawns - respawnsUsed, 0);
 
-    /// <summary>
-    /// Se dispara en cada cambio de vida con (actual, maxima). Es lo unico que la
-    /// UI necesita para dibujar la barra y el estado de la abeja.
-    ///
-    /// Va como evento en el tanque y no como variable global en un GameManager a
-    /// proposito: la vida ya tiene dueno (esta misma clase), y duplicarla en un
-    /// singleton son dos fuentes de verdad que divergen en cuanto una se actualiza y
-    /// la otra no (respawn, cura, cambio de escena). Con el evento la UI se entera
-    /// solo cuando el numero cambia, en vez de interrogarlo cada frame.
-    ///
-    /// Lo que SI es estado de partida (bombas, puntos, olas) va en un GameManager.
-    /// </summary>
     public event System.Action<float, float> OnHealthChanged;
+    public event System.Action OnRespawnLimitReached;
+    public event System.Action<int> OnRespawnsChanged;
 
     private void SetHealth(float value)
     {
@@ -63,11 +49,6 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
     }
 
-    /// <summary>
-    /// Direccion horizontal (world space) hacia la que avanza el tanque al
-    /// presionar W. Recalculada en cada acceso: sigue al giro A/D y al
-    /// respawn. Usado por la camara para quedar detras del morro.
-    /// </summary>
     public Vector3 MovingForward
     {
         get
@@ -97,7 +78,34 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
             FitController();
         }
         SetHealth(maxHealth);
-        spawnPoint = transform.position;
+        ResolveSpawn();
+        OnRespawnsChanged?.Invoke(RespawnsRemaining);
+    }
+
+    private void ResolveSpawn()
+    {
+        Transform spawn = spawnPointTransform;
+        if (spawn == null)
+        {
+            GameObject found = GameObject.Find("SpawnerPlayer");
+            if (found != null)
+            {
+                spawn = found.transform;
+            }
+        }
+
+        if (spawn == null)
+        {
+            Debug.LogWarning("[TankController] No se encontro SpawnerPlayer. El spawn queda en la posicion actual.", this);
+            spawnPoint = transform.position;
+            spawnRotation = transform.rotation;
+            return;
+        }
+
+        spawnPoint = spawn.position;
+        spawnRotation = spawn.rotation;
+        transform.SetPositionAndRotation(spawnPoint, spawnRotation);
+        verticalSpeed = 0f;
     }
 
     public void TakeDamage(float damage)
@@ -112,8 +120,22 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
 
         if (currentHealth <= 0f)
         {
-            Respawn();
+            HandleDeath();
         }
+    }
+
+    private void HandleDeath()
+    {
+        if (respawnsUsed >= maxRespawns)
+        {
+            Debug.Log("[TankController] Sin respawns restantes.", this);
+            OnRespawnLimitReached?.Invoke();
+            return;
+        }
+
+        respawnsUsed++;
+        OnRespawnsChanged?.Invoke(RespawnsRemaining);
+        Respawn();
     }
 
     public void Healing(int amount)
@@ -129,7 +151,7 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
     {
         Debug.Log("[TankController] El tanque fue destruido. Respawneando...", this);
         SetHealth(maxHealth);
-        transform.SetPositionAndRotation(spawnPoint, Quaternion.identity);
+        transform.SetPositionAndRotation(spawnPoint, spawnRotation);
         verticalSpeed = 0f;
     }
 
@@ -172,13 +194,6 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
         controller.Move(motion * Time.deltaTime);
     }
 
-    /// <summary>
-    /// Freno suave contra obstaculos: por cada rayo que detecta
-    /// algo dentro del margen, quita la componente del movimiento
-    /// que va hacia ese lado, proporcional a la distancia. El
-    /// casco visual deja de traspasar la montana y el tanque puede
-    /// deslizar lateralmente en vez de pararse en seco.
-    /// </summary>
     private Vector3 ApplyObstacleBraking(Vector3 motion)
     {
         if (obstacleSensor == null || obstacleStopMargin <= 0f)

@@ -1,37 +1,21 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
-/// <summary>
-/// Orquesta las oleadas. Mantiene un solo indice armado a la vez: cuando el player
-/// entra en el radio de CUALQUIER WaveCheckpoint de ese indice, la oleada sale y
-/// ningun otro checkpoint del mismo indice vuelve a dispararse (por eso sirve para
-/// un nivel con bifurcaciones: 1a, 1b o 1c disparan la misma oleada 1, el primero
-/// que toca el player). Al limpiar la oleada, tras una pausa, se habilita el indice
-/// siguiente. El checkpoint marcado isVictory gana la partida.
-///
-/// Descubre los checkpoints solo (FindObjectsByType) y los agrupa por index; no hay
-/// que arrastrar nada a mano. Se suscribe al evento Died de cada enemigo, que sale
-/// al terminar la secuencia de muerte (campo limpio antes de avanzar).
-/// </summary>
+
 [DisallowMultipleComponent]
 public class GameManager : MonoBehaviour
 {
-    [Header("Referencias")]
-    [Tooltip("Vacio = se busca el primero de la escena.")]
     [SerializeField] private EnemyPool pool;
-    [Tooltip("Vacio = se busca el TankController de la escena.")]
     [SerializeField] private TankController player;
-
-    [Header("Progresion")]
-    [Tooltip("Indice de la primera oleada.")]
-    [Min(0)]
+    [SerializeField] private Transform labDoor;
+    [SerializeField] private float winRadius = 5f;
+    [SerializeField] private float victoryDelay = 2f;
+    [SerializeField] private string endingScene = "Ending";
+    [SerializeField] private AudioClip victoryClip;
     [SerializeField] private int startingIndex = 1;
-    [Tooltip("Demora inicial antes de armar la primera oleada (para que el player se ubique).")]
-    [Min(0)]
     [SerializeField] private float startDelay = 1f;
-    [Tooltip("Pausa por defecto tras limpiar una oleada si su WaveDefinition no define una.")]
-    [Min(0)]
     [SerializeField] private float defaultPostWavePause = 2f;
 
     private WaveCheckpoint[] checkpoints;
@@ -48,18 +32,15 @@ public class GameManager : MonoBehaviour
     private int totalEnemies;
     private int remainingEnemies;
 
-    /// <summary>Cambia cuando muere un enemigo: pasa los que faltan matar. Se
-    /// dispara una vez al arrancar (para que la UI pinte el total) y en cada baja.</summary>
     public event System.Action<int> OnEnemiesRemainingChanged;
+    public event System.Action OnVictory;
 
     public int CurrentIndex => currentIndex;
     public int ActiveEnemyCount => activeEnemies.Count;
     public bool IsFinished => finished;
 
-    /// <summary>Total de enemigos que spawnean todas las oleadas de la partida.</summary>
     public int TotalEnemies => totalEnemies;
 
-    /// <summary>Enemigos que todavia faltan matar (total menos bajas).</summary>
     public int RemainingEnemies => remainingEnemies;
 
     private void Awake()
@@ -80,6 +61,24 @@ public class GameManager : MonoBehaviour
         if (player == null)
         {
             Debug.LogWarning("[GameManager] No se encontro TankController (el Player) en la escena.", this);
+        }
+        else
+        {
+            player.OnRespawnLimitReached -= HandleRespawnLimitReached;
+            player.OnRespawnLimitReached += HandleRespawnLimitReached;
+        }
+
+        if (labDoor == null)
+        {
+            GameObject found = GameObject.Find("LabDoor");
+            if (found != null)
+            {
+                labDoor = found.transform;
+            }
+        }
+        if (labDoor == null)
+        {
+            Debug.LogWarning("[GameManager] No se encontro LabDoor: no se puede ganar.", this);
         }
     }
 
@@ -122,12 +121,6 @@ public class GameManager : MonoBehaviour
         OnEnemiesRemainingChanged?.Invoke(remainingEnemies);
     }
 
-    /// <summary>
-    /// Suma los enemigos de todas las oleadas de la partida. Se agrupa por indice
-    /// (las variantes 1a/1b/1c comparten la misma WaveDefinition y solo dispara la
-    /// primera que toca el player, asi que cuentan una sola vez). Los checkpoints de
-    /// victoria no spawnean y no cuentan.
-    /// </summary>
     private int CountTotalEnemies()
     {
         int total = 0;
@@ -161,10 +154,22 @@ public class GameManager : MonoBehaviour
             }
         }
         activeEnemies.Clear();
+
+        if (player != null)
+        {
+            player.OnRespawnLimitReached -= HandleRespawnLimitReached;
+        }
     }
 
     private void Update()
     {
+        if (finished)
+        {
+            return;
+        }
+
+        CheckVictory();
+
         if (finished || waveActive || player == null)
         {
             return;
@@ -190,6 +195,19 @@ public class GameManager : MonoBehaviour
         if (checkpoint != null)
         {
             FireWave(checkpoint);
+        }
+    }
+
+    private void CheckVictory()
+    {
+        if (finished || totalEnemies <= 0 || remainingEnemies > 0 || labDoor == null || player == null)
+        {
+            return;
+        }
+
+        if ((player.transform.position - labDoor.position).sqrMagnitude <= winRadius * winRadius)
+        {
+            Victory();
         }
     }
 
@@ -239,7 +257,7 @@ public class GameManager : MonoBehaviour
 
         if (checkpoint.IsVictory)
         {
-            Victory();
+            Debug.Log($"[GameManager] {checkpoint.name} es un checkpoint de victoria: la victoria la maneja LabDoor.", this);
             return;
         }
 
@@ -295,8 +313,6 @@ public class GameManager : MonoBehaviour
         spawnRoutine = null;
         spawnComplete = true;
 
-        // Si no se pudo spawnear ninguno no hay evento Died que espere: se cierra
-        // la oleada igual para no dejar la progresion trabada.
         if (activeEnemies.Count == 0)
         {
             WaveCleared();
@@ -314,9 +330,6 @@ public class GameManager : MonoBehaviour
         remainingEnemies = Mathf.Max(remainingEnemies - 1, 0);
         OnEnemiesRemainingChanged?.Invoke(remainingEnemies);
 
-        // spawnComplete evita cerrar la oleada a mitad del stagger: si un enemigo
-        // ya spawneado muere rapido, no cuenta como "campo limpio" hasta que el
-        // ultimo de la oleada haya nacido.
         if (waveActive && spawnComplete && activeEnemies.Count == 0)
         {
             WaveCleared();
@@ -349,17 +362,46 @@ public class GameManager : MonoBehaviour
 
     private void Victory()
     {
+        if (finished)
+        {
+            return;
+        }
+
         finished = true;
-        Debug.Log("[GameManager] VICTORIA: el player llego al Laboratorio.", this);
+        Debug.Log("[GameManager] VICTORIA: el player llego al LabDoor sin enemigos.", this);
+        OnVictory?.Invoke();
+        StartCoroutine(VictoryRoutine());
     }
 
-    /// <summary>
-    /// Derrota por ahora solo marca la partida como terminada. La pantalla final y
-    /// el respawn real de la Etapa D se cuelgan de aca.
-    /// </summary>
+    private IEnumerator VictoryRoutine()
+    {
+        if (victoryClip != null)
+        {
+            AudioSource.PlayClipAtPoint(victoryClip, player != null ? player.transform.position : transform.position);
+        }
+
+        if (victoryDelay > 0f)
+        {
+            yield return new WaitForSeconds(victoryDelay);
+        }
+
+        SceneManager.LoadScene(endingScene);
+    }
+
+    private void HandleRespawnLimitReached()
+    {
+        Defeat();
+    }
+
     public void Defeat()
     {
+        if (finished)
+        {
+            return;
+        }
+
         finished = true;
-        Debug.Log("[GameManager] DERROTA.", this);
+        Debug.Log("[GameManager] DERROTA: el player agoto los respawns.", this);
+        SceneManager.LoadScene(endingScene);
     }
 }
