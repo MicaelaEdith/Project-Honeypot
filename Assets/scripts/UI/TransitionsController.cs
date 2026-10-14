@@ -24,6 +24,15 @@ public class TransitionsController : MonoBehaviour
     [Tooltip("Si esta prendido, el primer elemento aparece solo al entrar.")]
     [SerializeField] private bool revealFirstOnStart = true;
 
+    [Tooltip("Pausas particulares por diapositiva (por prefijo, ej \"04\"). " +
+             "Pisan a slideHoldDuration.")]
+    [SerializeField] private SlideHoldOverride[] slideHoldOverrides = new SlideHoldOverride[]
+    {
+        new SlideHoldOverride { slidePrefix = "04", holdDuration = 5f },
+        new SlideHoldOverride { slidePrefix = "05", holdDuration = 5f },
+        new SlideHoldOverride { slidePrefix = "06", holdDuration = 1.5f },
+    };
+
     [Header("Fade")]
     [SerializeField] private float fadeDuration = 0.35f;
 
@@ -31,6 +40,15 @@ public class TransitionsController : MonoBehaviour
     [SerializeField] private bool loadNextSceneOnEnd = true;
     [SerializeField] private string nextSceneName = "Main";
     [SerializeField] private float endDelay = 1.5f;
+
+    [System.Serializable]
+    private class SlideHoldOverride
+    {
+        [Tooltip("Prefijo de la diapositiva, por ejemplo \"04\" o \"05\".")]
+        public string slidePrefix;
+        [Tooltip("Segundos que queda en pantalla la diapositiva completa.")]
+        public float holdDuration = 2.5f;
+    }
 
     private class Element
     {
@@ -41,6 +59,7 @@ public class TransitionsController : MonoBehaviour
 
     private class Slide
     {
+        public string Prefix;
         public readonly List<CanvasGroup> Elements = new List<CanvasGroup>();
     }
 
@@ -150,9 +169,34 @@ public class TransitionsController : MonoBehaviour
 
         bool lastOfSlide = _currentIndex + 1 >= _steps.Count ||
                            _steps[_currentIndex + 1].Slide != step.Slide;
-        _nextDelay = lastOfSlide ? slideHoldDuration : autoAdvanceDelay;
+        _nextDelay = lastOfSlide ? HoldDurationForSlide(step.Slide) : autoAdvanceDelay;
 
         StartCoroutine(FadeIn(step.Group));
+    }
+
+    private float HoldDurationForSlide(int slideIndex)
+    {
+        if (slideIndex < 0 || slideIndex >= _slides.Count)
+        {
+            return slideHoldDuration;
+        }
+
+        string prefix = _slides[slideIndex].Prefix;
+
+        if (slideHoldOverrides != null)
+        {
+            foreach (SlideHoldOverride over in slideHoldOverrides)
+            {
+                if (over != null &&
+                    string.Equals(over.slidePrefix, prefix,
+                                  System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return over.holdDuration;
+                }
+            }
+        }
+
+        return slideHoldDuration;
     }
 
     private void HideSlide(int slide)
@@ -272,7 +316,7 @@ public class TransitionsController : MonoBehaviour
             string elementPrefix = Prefix(element.Name);
             if (slide == null || elementPrefix != prefix)
             {
-                slide = new Slide();
+                slide = new Slide { Prefix = elementPrefix };
                 _slides.Add(slide);
                 prefix = elementPrefix;
             }

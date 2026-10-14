@@ -3,7 +3,7 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class Projectile : MonoBehaviour
 {
-    [SerializeField] private float lifeTime = 5f;
+    [SerializeField] private float lifeTime = 6f;
     [SerializeField] private float impactVfxLifeTime = 2.5f;
     public float damage = 10f;
     public bool playerOnly;
@@ -11,11 +11,47 @@ public class Projectile : MonoBehaviour
     public GameObject impactVfx;
     public float impactVfxScale = 1f;
 
+    [Tooltip("Distancia horizontal desde la boca a la que empieza a caer (gravedad).")]
+    public float fallStartDistance = 45f;
+    [Tooltip("Distancia horizontal total tras la cual explota (se apaga).")]
+    public float maxRange = 60f;
+
     private bool consumed;
+    private Vector3 startPos;
+    private Rigidbody body;
+    private bool falling;
 
     private void Start()
     {
+        startPos = transform.position;
+        body = GetComponent<Rigidbody>();
         Destroy(gameObject, lifeTime);
+    }
+
+    private void FixedUpdate()
+    {
+        if (consumed)
+        {
+            return;
+        }
+
+        Vector3 delta = transform.position - startPos;
+        delta.y = 0f;
+        float traveled = delta.magnitude;
+
+        if (!falling && fallStartDistance > 0f && traveled >= fallStartDistance)
+        {
+            falling = true;
+            if (body != null)
+            {
+                body.useGravity = true;
+            }
+        }
+
+        if (maxRange > 0f && traveled >= maxRange)
+        {
+            Impact(null, transform.position);
+        }
     }
 
     private void OnCollisionEnter(Collision collision)
@@ -37,7 +73,10 @@ public class Projectile : MonoBehaviour
         }
         consumed = true;
 
-        ApplyDamage(collider);
+        if (collider != null)
+        {
+            ApplyDamage(collider);
+        }
 
         if (impactVfx != null)
         {

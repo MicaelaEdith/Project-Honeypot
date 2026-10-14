@@ -20,10 +20,12 @@ public class CannonController : MonoBehaviour
     [SerializeField] private float projectileScaleMultiplier = 1f;
 
     [SerializeField] private float projectileSizeFactor = 0.05f;
-    [SerializeField] private float flightTime = 0.6f;
+    [SerializeField] private float projectileCruiseSpeed = 55f;
+    [SerializeField] private float projectileFallDistance = 45f;
     [SerializeField] private float impactVfxDiameterFactor = 2f;
     [SerializeField] private float impactVfxReferenceDiameter = 5.5f;
     [SerializeField] private float impactVfxScale = 1f;
+    [SerializeField] private float maxRange = 60f;
 
     private static readonly string[] CannonNames =
     {
@@ -145,7 +147,6 @@ public class CannonController : MonoBehaviour
     {
         Vector3 direction = BarrelDirection;
         Vector3 spawn = MuzzleWorldPosition();
-        Vector3 aimPoint = GetMouseGroundPoint(AimPlaneHeight());
 
         float diameter = ProjectileDiameter();
 
@@ -181,9 +182,10 @@ public class CannonController : MonoBehaviour
             body = projectile.AddComponent<Rigidbody>();
         }
         body.useGravity = false;
+        body.linearDamping = 0f;
         body.isKinematic = false;
         body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-        body.linearVelocity = direction * ProjectileSpeedTo(spawn, aimPoint);
+        body.linearVelocity = direction * CruiseSpeed();
 
         if (collider != null)
         {
@@ -197,6 +199,8 @@ public class CannonController : MonoBehaviour
         }
         projectileScript.impactVfx = impactVfxPrefab;
         projectileScript.impactVfxScale = ImpactVfxScale(diameter);
+        projectileScript.fallStartDistance = projectileFallDistance;
+        projectileScript.maxRange = maxRange;
     }
 
     private float HullRadius()
@@ -225,14 +229,13 @@ public class CannonController : MonoBehaviour
         return HullRadius() * Mathf.Max(projectileSizeFactor, 0f);
     }
 
-    private float ProjectileSpeedTo(Vector3 from, Vector3 to)
+    private float CruiseSpeed()
     {
         if (projectileSpeed > 0f)
         {
             return projectileSpeed;
         }
-        float seconds = Mathf.Max(flightTime, 0.05f);
-        return Mathf.Max(Vector3.Distance(from, to) / seconds, 0.0001f);
+        return Mathf.Max(projectileCruiseSpeed, 0.0001f);
     }
 
 
