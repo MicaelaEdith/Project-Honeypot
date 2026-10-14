@@ -104,6 +104,11 @@ public class CannonController : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (Time.timeScale <= 0f)
+        {
+            return;
+        }
+
         cooldownTimer = Mathf.Max(0f, cooldownTimer - Time.deltaTime);
 
         AimAtMouse();
@@ -201,6 +206,8 @@ public class CannonController : MonoBehaviour
         projectileScript.impactVfxScale = ImpactVfxScale(diameter);
         projectileScript.fallStartDistance = projectileFallDistance;
         projectileScript.maxRange = maxRange;
+
+        AudioManager.Instance?.PlayPlayerShot();
     }
 
     private float HullRadius()

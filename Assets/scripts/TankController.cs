@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -23,15 +24,37 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
     [SerializeField] private int maxRespawns = 3;
     [SerializeField] private Transform spawnPointTransform;
 
+    [Header("Respawn (fade)")]
+    [SerializeField] private float respawnFadeOutDuration = 0.6f;
+    [SerializeField] private float respawnBlackHold = 0.35f;
+    [SerializeField] private float respawnFadeInDuration = 0.6f;
+
+    [Tooltip("Distancia por debajo del spawn a la que se considera que el player se cayó del mundo y se lo devuelve al spawn.")]
+    [SerializeField] private float fallResetDepth = 10f;
+
+    [Header("Choque con enemigos (sin físicas)")]
+    [Tooltip("Margen extra entre el player y el enemigo al reacomodarlo.")]
+    [SerializeField] private float enemyPushMargin = 0.1f;
+    [Tooltip("Distancia máxima a la que se consideran enemigos para el empuje.")]
+    [SerializeField] private float enemyPushRange = 25f;
+    [Tooltip("Holgura extra: si un enemigo esta a esta distancia del casco, el player no puede seguir avanzando hacia el.")]
+    [SerializeField] private float enemyBlockSkin = 2.0f;
+    [Tooltip("TEMP: imprime en consola la distancia al enemigo mas cercano para diagnosticar el bloqueo.")]
+    [SerializeField] private bool debugEnemyBlocking = true;
+
+    private float nextEnemyDebugTime;
+
     private CharacterController controller;
     private CannonController cannon;
     private PlayerObstacleSensor obstacleSensor;
+    private CameraFollow cameraFollow;
     private Vector3 forwardLocal;
     private float verticalSpeed;
     private float currentHealth;
     private Vector3 spawnPoint;
     private Quaternion spawnRotation = Quaternion.identity;
     private int respawnsUsed;
+    private bool isRespawning;
 
     public float CurrentHealth => currentHealth;
     public float MaxHealth => maxHealth;
@@ -68,6 +91,7 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
         controller = GetComponent<CharacterController>();
         cannon = GetComponentInChildren<CannonController>();
         obstacleSensor = GetComponent<PlayerObstacleSensor>();
+        cameraFollow = FindFirstObjectByType<CameraFollow>();
     }
 
     private void Start()
@@ -118,6 +142,11 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
         SetHealth(currentHealth - Mathf.Max(0f, damage));
         Debug.Log($"[TankController] El tanque recibio {damage} de daño. Vida: {currentHealth}", this);
 
+        if (damage > 0f)
+        {
+            AudioManager.Instance?.PlayDamage();
+        }
+
         if (currentHealth <= 0f)
         {
             HandleDeath();
@@ -126,6 +155,8 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
 
     private void HandleDeath()
     {
+        AudioManager.Instance?.PlayPlayerDeath();
+
         if (respawnsUsed >= maxRespawns)
         {
             Debug.Log("[TankController] Sin respawns restantes.", this);
@@ -135,7 +166,36 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
 
         respawnsUsed++;
         OnRespawnsChanged?.Invoke(RespawnsRemaining);
+
+        if (!isRespawning)
+        {
+            StartCoroutine(RespawnRoutine());
+        }
+    }
+
+    private System.Collections.IEnumerator RespawnRoutine()
+    {
+        isRespawning = true;
+
+        ScreenFader fader = ScreenFader.Instance;
+        if (fader != null)
+        {
+            yield return fader.FadeOut(respawnFadeOutDuration);
+        }
+
         Respawn();
+
+        if (respawnBlackHold > 0f)
+        {
+            yield return new WaitForSecondsRealtime(respawnBlackHold);
+        }
+
+        if (fader != null)
+        {
+            yield return fader.FadeIn(respawnFadeInDuration);
+        }
+
+        isRespawning = false;
     }
 
     public void Healing(int amount)
@@ -151,12 +211,34 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
     {
         Debug.Log("[TankController] El tanque fue destruido. Respawneando...", this);
         SetHealth(maxHealth);
-        transform.SetPositionAndRotation(spawnPoint, spawnRotation);
+        TeleportToSpawn();
+
+        if (cameraFollow != null)
+        {
+            cameraFollow.SnapToTarget();
+        }
+    }
+
+    private void TeleportToSpawn()
+    {
+        bool wasEnabled = controller.enabled;
+        controller.enabled = false;
+        transform.SetPositionAndRotation(spawnPoint + Vector3.up * 0.1f, spawnRotation);
+        controller.enabled = wasEnabled;
+        Physics.SyncTransforms();
+
         verticalSpeed = 0f;
     }
 
     private void Update()
     {
+        if (isRespawning || Time.timeScale <= 0f)
+        {
+            return;
+        }
+
+        LogEnemyBlockingDiagnostics();
+
         float throttle = 0f;
         float turn = 0f;
 
@@ -191,7 +273,254 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
 
         Vector3 motion = forward * (throttle * moveSpeed) + Vector3.up * verticalSpeed;
         motion = ApplyObstacleBraking(motion);
+        motion = ApplyEnemyBlocking(motion);
         controller.Move(motion * Time.deltaTime);
+
+        ResolveEnemyOverlaps();
+
+        if (fallResetDepth > 0f && transform.position.y < spawnPoint.y - fallResetDepth)
+        {
+            Debug.LogWarning("[TankController] El player cayo fuera del mundo; se lo devuelve al spawn.", this);
+            TeleportToSpawn();
+        }
+    }
+
+    private void ResolveEnemyOverlaps()
+    {
+        IReadOnlyList<EnemyTemplate> enemies = EnemyTemplate.ActiveEnemies;
+        if (enemies == null || enemies.Count == 0)
+        {
+            return;
+        }
+
+        float playerRadius = PlayerHullRadius();
+        float rangeSqr = Mathf.Max(enemyPushRange, 0f) * Mathf.Max(enemyPushRange, 0f);
+
+        for (int i = 0; i < enemies.Count; i++)
+        {
+            EnemyTemplate enemy = enemies[i];
+            if (enemy == null || !enemy.IsBlocking)
+            {
+                continue;
+            }
+
+            Collider other = enemy.BodyCollider;
+            if (other == null || !other.enabled)
+            {
+                continue;
+            }
+
+            if (!TryGetEnemyProximity(other, out Vector3 outward, out float hullDistance))
+            {
+                continue;
+            }
+
+            if (hullDistance * hullDistance > rangeSqr)
+            {
+                continue;
+            }
+
+            float overlap = playerRadius + Mathf.Max(enemyPushMargin, 0f) - hullDistance;
+            if (overlap <= 0f)
+            {
+                continue;
+            }
+
+            controller.Move(outward * overlap);
+        }
+    }
+
+    private Vector3 ApplyEnemyBlocking(Vector3 motion)
+    {
+        Vector3 flatMotion = new Vector3(motion.x, 0f, motion.z);
+        float speed = flatMotion.magnitude;
+        if (speed < 0.0001f)
+        {
+            return motion;
+        }
+
+        IReadOnlyList<EnemyTemplate> enemies = EnemyTemplate.ActiveEnemies;
+        if (enemies == null || enemies.Count == 0)
+        {
+            return motion;
+        }
+
+        float playerRadius = PlayerHullRadius();
+        float blockDistance = playerRadius + Mathf.Max(enemyBlockSkin, 0f);
+        Vector3 moveDirection = flatMotion / speed;
+        Vector3 tangential = moveDirection;
+
+        for (int i = 0; i < enemies.Count; i++)
+        {
+            EnemyTemplate enemy = enemies[i];
+            if (enemy == null || !enemy.IsBlocking)
+            {
+                continue;
+            }
+
+            Collider other = enemy.BodyCollider;
+            if (other == null || !other.enabled)
+            {
+                continue;
+            }
+
+            if (!TryGetEnemyProximity(other, out Vector3 outward, out float hullDistance))
+            {
+                continue;
+            }
+
+            if (hullDistance > blockDistance)
+            {
+                continue;
+            }
+
+            Vector3 intoEnemy = -outward;
+            float towards = Vector3.Dot(moveDirection, intoEnemy);
+            if (towards > 0f)
+            {
+                tangential -= intoEnemy * towards;
+            }
+        }
+
+        if (tangential.sqrMagnitude < 0.0000001f)
+        {
+            return new Vector3(0f, motion.y, 0f);
+        }
+
+        tangential = tangential.normalized * speed;
+        return new Vector3(tangential.x, motion.y, tangential.z);
+    }
+
+    private void LogEnemyBlockingDiagnostics()
+    {
+        if (!debugEnemyBlocking || Time.unscaledTime < nextEnemyDebugTime)
+        {
+            return;
+        }
+        nextEnemyDebugTime = Time.unscaledTime + 0.15f;
+
+        IReadOnlyList<EnemyTemplate> enemies = EnemyTemplate.ActiveEnemies;
+        Vector3 center = PlayerHullCenter();
+        float best = float.MaxValue;
+        EnemyTemplate bestEnemy = null;
+        Collider bestCollider = null;
+
+        if (enemies != null)
+        {
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                EnemyTemplate e = enemies[i];
+                if (e == null)
+                {
+                    continue;
+                }
+
+                Collider c = e.BodyCollider;
+                if (c == null)
+                {
+                    continue;
+                }
+
+                Vector3 closest = c.ClosestPoint(center);
+                Vector3 d = closest - center;
+                d.y = 0f;
+                float dist = d.magnitude;
+                if (dist < best)
+                {
+                    best = dist;
+                    bestEnemy = e;
+                    bestCollider = c;
+                }
+            }
+        }
+
+        if (bestEnemy == null || best > 12f)
+        {
+            return;
+        }
+
+        Vector3 toTransform = bestEnemy.transform.position - center;
+        toTransform.y = 0f;
+
+        string info = bestEnemy != null
+            ? $"{bestEnemy.name} state={bestEnemy.CurrentState} blocking={bestEnemy.IsBlocking} colEnabled={bestCollider.enabled} colType={bestCollider.GetType().Name} colSize={bestCollider.bounds.size} colCenter={bestCollider.bounds.center} enemyPos={bestEnemy.transform.position} hullRadius={bestEnemy.BodyRadius:F2} distCollider={best:F2} distTransform={toTransform.magnitude:F2}"
+            : "ninguno";
+
+        Debug.Log($"[BlockDiag] playerPos={transform.position} playerCenter={center} hullRadius={PlayerHullRadius():F2} blockDistance={PlayerHullRadius() + Mathf.Max(enemyBlockSkin, 0f):F2} enemies={enemies?.Count ?? -1} nearest=[{info}]");
+    }
+
+    private bool TryGetEnemyProximity(Collider other, out Vector3 outward, out float hullDistance)
+    {
+        outward = Vector3.forward;
+        hullDistance = 0f;
+
+        Vector3 center = PlayerHullCenter();
+        Bounds bounds = other.bounds;
+
+        float scaleY = Mathf.Abs(transform.lossyScale.y);
+        float halfHeight = controller.height * 0.5f * scaleY;
+        if (center.y + halfHeight < bounds.min.y || center.y - halfHeight > bounds.max.y)
+        {
+            return false;
+        }
+
+        Vector3 closest = other.ClosestPoint(center);
+        Vector3 away = center - closest;
+        away.y = 0f;
+        float distance = away.magnitude;
+
+        if (distance > 0.0001f)
+        {
+            outward = away / distance;
+            hullDistance = distance;
+            return true;
+        }
+
+        if (other is BoxCollider box)
+        {
+            outward = BoxNearestFaceOutward(box, center);
+            return true;
+        }
+
+        Vector3 fromCenter = center - bounds.center;
+        fromCenter.y = 0f;
+        if (fromCenter.sqrMagnitude < 0.0001f)
+        {
+            return false;
+        }
+
+        outward = fromCenter.normalized;
+        return true;
+    }
+
+    private Vector3 BoxNearestFaceOutward(BoxCollider box, Vector3 worldPoint)
+    {
+        Transform boxTransform = box.transform;
+        Vector3 local = boxTransform.InverseTransformPoint(worldPoint) - box.center;
+        Vector3 half = box.size * 0.5f;
+
+        float penetrationX = half.x - Mathf.Abs(local.x);
+        float penetrationZ = half.z - Mathf.Abs(local.z);
+
+        Vector3 localDirection = penetrationX < penetrationZ
+            ? new Vector3(Mathf.Sign(local.x), 0f, 0f)
+            : new Vector3(0f, 0f, Mathf.Sign(local.z));
+
+        Vector3 world = boxTransform.rotation * localDirection;
+        world.y = 0f;
+        return world.sqrMagnitude > 0.0001f ? world.normalized : Vector3.forward;
+    }
+
+    private Vector3 PlayerHullCenter()
+    {
+        float scaleY = Mathf.Abs(transform.lossyScale.y);
+        return transform.position + transform.up * (controller.center.y * scaleY);
+    }
+
+    private float PlayerHullRadius()
+    {
+        float scaleXZ = Mathf.Max(Mathf.Abs(transform.lossyScale.x), Mathf.Abs(transform.lossyScale.z));
+        return controller.radius * scaleXZ;
     }
 
     private Vector3 ApplyObstacleBraking(Vector3 motion)

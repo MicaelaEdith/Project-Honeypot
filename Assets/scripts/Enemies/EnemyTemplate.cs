@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -57,6 +58,27 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
     protected Transform player { get; private set; }
     protected bool IsLured => lurePosition.HasValue;
     public EnemyState CurrentState => currentState;
+
+    private Collider bodyCollider;
+    public Collider BodyCollider => bodyCollider;
+    public float BodyRadius => HullRadius();
+    public bool IsBlocking => currentState != EnemyState.Death && bodyCollider != null && bodyCollider.enabled;
+
+    private static readonly List<EnemyTemplate> activeList = new List<EnemyTemplate>();
+    public static IReadOnlyList<EnemyTemplate> ActiveEnemies => activeList;
+
+    private void OnEnable()
+    {
+        if (!activeList.Contains(this))
+        {
+            activeList.Add(this);
+        }
+    }
+
+    private void OnDisable()
+    {
+        activeList.Remove(this);
+    }
 
     public event System.Action<EnemyTemplate> Died;
 
@@ -267,6 +289,7 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
     protected virtual void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
+        bodyCollider = GetComponent<Collider>();
         baseLocalScale = transform.localScale;
         baseLocalRotation = transform.localRotation;
         weavePhase = Random.value * Mathf.PI * 2f;
@@ -285,6 +308,44 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         agent.radius = HullRadius() * Mathf.Max(avoidanceRadiusFactor, 0f) / rootScale;
         PlaceOnNavMesh();
         ResolvePlayerStyleAssets();
+        IgnorePlayerCollisions();
+    }
+
+    private void IgnorePlayerCollisions()
+    {
+        if (player == null)
+        {
+            player = FindPlayer();
+        }
+
+        if (player == null)
+        {
+            return;
+        }
+
+        Collider[] playerColliders = player.GetComponentsInChildren<Collider>();
+        if (playerColliders.Length == 0)
+        {
+            return;
+        }
+
+        foreach (Collider own in GetComponentsInChildren<Collider>())
+        {
+            if (own == null)
+            {
+                continue;
+            }
+
+            foreach (Collider other in playerColliders)
+            {
+                if (other == null || other == own)
+                {
+                    continue;
+                }
+
+                Physics.IgnoreCollision(own, other, true);
+            }
+        }
     }
 
     private void ResolvePlayerStyleAssets()
@@ -459,6 +520,8 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         script.damage = damage;
         script.Launch(direction, ProjectileSpeedTo(position, target));
 
+        AudioManager.Instance?.PlayEnemyShot();
+
         return projectile;
     }
 
@@ -510,6 +573,8 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         script.playerOnly = true;
         script.impactVfx = playerStyleImpactVfx;
         script.impactVfxScale = ImpactVfxScale(diameter);
+
+        AudioManager.Instance?.PlayEnemyShot();
 
         return projectile;
     }
@@ -727,6 +792,8 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
             agent.ResetPath();
         }
 
+        IgnorePlayerCollisions();
+
         Debug.Log($"[{name}] ResetForSpawn en {position}.", this);
     }
 
@@ -805,6 +872,7 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
 
     protected virtual void OnDeathStarted()
     {
+        AudioManager.Instance?.PlayEnemyExplosion();
     }
 
 

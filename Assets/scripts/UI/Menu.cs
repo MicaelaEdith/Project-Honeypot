@@ -36,8 +36,8 @@ public class MenuController : MonoBehaviour
         panel_settings.SetActive(false);
     }
 
-    private void SalirJuego()
+    public void SalirJuego()
     {
-        Application.Quit();
+        GameManager.QuitGame();
     }
 }

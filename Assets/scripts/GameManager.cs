@@ -68,6 +68,10 @@ public class GameManager : MonoBehaviour
 
     public static Outcome LastOutcome { get; private set; } = Outcome.Victory;
 
+    public const string MainSceneName = "Main";
+    public const string MenuSceneName = "Menu";
+    public const string TransitionSceneName = "Transition";
+
     public int CurrentIndex => currentIndex;
     public int ActiveEnemyCount => activeEnemies.Count;
     public bool IsFinished => finished;
@@ -409,7 +413,11 @@ public class GameManager : MonoBehaviour
 
     private IEnumerator VictoryRoutine()
     {
-        if (victoryClip != null)
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayVictory();
+        }
+        else if (victoryClip != null)
         {
             AudioSource.PlayClipAtPoint(victoryClip, player != null ? player.transform.position : transform.position);
         }
@@ -438,5 +446,30 @@ public class GameManager : MonoBehaviour
         LastOutcome = Outcome.Defeat;
         Debug.Log("[GameManager] DERROTA: el player agoto los respawns.", this);
         SceneManager.LoadScene(endingScene);
+    }
+
+    public static void QuitGame()
+    {
+        Debug.Log("[GameManager] Cerrando el juego.");
+        Time.timeScale = 1f;
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
+    }
+
+    public static void RestartGame()
+    {
+        Debug.Log("[GameManager] Reiniciando el juego de cero.");
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(TransitionSceneName);
+    }
+
+    public static void LoadMainMenu()
+    {
+        Debug.Log("[GameManager] Volviendo al menu principal.");
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(MenuSceneName);
     }
 }

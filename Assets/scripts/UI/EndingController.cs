@@ -21,6 +21,21 @@ public class EndingController : MonoBehaviour
         Apply();
     }
 
+    public void QuitGame()
+    {
+        GameManager.QuitGame();
+    }
+
+    public void RestartGame()
+    {
+        GameManager.RestartGame();
+    }
+
+    public void LoadMainMenu()
+    {
+        GameManager.LoadMainMenu();
+    }
+
     private void Apply()
     {
         bool victory = GameManager.LastOutcome == GameManager.Outcome.Victory;

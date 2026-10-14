@@ -64,6 +64,29 @@ public class CameraFollow : MonoBehaviour
     }
 
 
+    public void SnapToTarget()
+    {
+        velocity = Vector3.zero;
+
+        if (target == null)
+        {
+            TankController controller = FindFirstObjectByType<TankController>();
+            if (controller == null)
+            {
+                return;
+            }
+            target = controller.transform;
+        }
+
+        Vector3 forward = GetTankForward();
+        Vector3 desired = target.position - forward * distance + Vector3.up * height;
+        Vector3 lookPoint = target.position + Vector3.up * lookHeight;
+
+        transform.SetPositionAndRotation(
+            desired,
+            Quaternion.LookRotation(lookPoint - desired, Vector3.up));
+    }
+
     private Vector3 AdjustForObstacles(Vector3 origin, Vector3 desired)
     {
         if (obstacleSensor == null)

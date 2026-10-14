@@ -29,6 +29,11 @@ public class HoneyPotActivator : MonoBehaviour
 
     private void Update()
     {
+        if (Time.timeScale <= 0f)
+        {
+            return;
+        }
+
         Keyboard keyboard = Keyboard.current;
         if (keyboard == null)
         {
@@ -83,6 +88,7 @@ public class HoneyPotActivator : MonoBehaviour
         Instantiate(honeypotPrefab, transform.position + spawnOffset, Quaternion.identity);
         remainingHoneypots--;
         nextActivationTime = Time.time + cooldown;
+        AudioManager.Instance?.PlayHoneypot();
         OnHoneypotCountChanged?.Invoke(remainingHoneypots);
     }
 }
