@@ -35,6 +35,39 @@ public class GameManager : MonoBehaviour
     public event System.Action<int> OnEnemiesRemainingChanged;
     public event System.Action OnVictory;
 
+    public enum Language
+    {
+        English,
+        Spanish
+    }
+
+    public enum Outcome
+    {
+        Victory,
+        Defeat
+    }
+
+    public static event System.Action<Language> OnLanguageChanged;
+
+    private static Language selectedLanguage = Language.English;
+
+    public static Language SelectedLanguage
+    {
+        get => selectedLanguage;
+        set
+        {
+            if (selectedLanguage == value)
+            {
+                return;
+            }
+
+            selectedLanguage = value;
+            OnLanguageChanged?.Invoke(value);
+        }
+    }
+
+    public static Outcome LastOutcome { get; private set; } = Outcome.Victory;
+
     public int CurrentIndex => currentIndex;
     public int ActiveEnemyCount => activeEnemies.Count;
     public bool IsFinished => finished;
@@ -368,6 +401,7 @@ public class GameManager : MonoBehaviour
         }
 
         finished = true;
+        LastOutcome = Outcome.Victory;
         Debug.Log("[GameManager] VICTORIA: el player llego al LabDoor sin enemigos.", this);
         OnVictory?.Invoke();
         StartCoroutine(VictoryRoutine());
@@ -401,6 +435,7 @@ public class GameManager : MonoBehaviour
         }
 
         finished = true;
+        LastOutcome = Outcome.Defeat;
         Debug.Log("[GameManager] DERROTA: el player agoto los respawns.", this);
         SceneManager.LoadScene(endingScene);
     }
