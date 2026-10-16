@@ -7,25 +7,17 @@ using UnityEngine.SceneManagement;
 [DisallowMultipleComponent]
 public class TransitionsController : MonoBehaviour
 {
-    [Header("Contenedores (hijos en orden)")]
-    [Tooltip("Hijos ordenados por nombre: 00a, 00b, 01a, 01b, ...")]
     [SerializeField] private Transform imagesRoot;
     [SerializeField] private Transform englishRoot;
     [SerializeField] private Transform spanishRoot;
 
-    [Header("Avance")]
-    [Tooltip("Segundos sin click/tecla antes de mostrar el siguiente elemento.")]
     [SerializeField] private float autoAdvanceDelay = 1f;
-    [Tooltip("Segundos que se queda la diapositiva completa antes de pasar a la siguiente.")]
     [SerializeField] private float slideHoldDuration = 2.5f;
     [SerializeField] private bool autoAdvance = true;
     [SerializeField] private bool advanceOnClick = true;
     [SerializeField] private bool advanceOnAnyKey = true;
-    [Tooltip("Si esta prendido, el primer elemento aparece solo al entrar.")]
     [SerializeField] private bool revealFirstOnStart = true;
 
-    [Tooltip("Pausas particulares por diapositiva (por prefijo, ej \"04\"). " +
-             "Pisan a slideHoldDuration.")]
     [SerializeField] private SlideHoldOverride[] slideHoldOverrides = new SlideHoldOverride[]
     {
         new SlideHoldOverride { slidePrefix = "04", holdDuration = 5f },
@@ -33,10 +25,8 @@ public class TransitionsController : MonoBehaviour
         new SlideHoldOverride { slidePrefix = "06", holdDuration = 1.5f },
     };
 
-    [Header("Fade")]
     [SerializeField] private float fadeDuration = 0.35f;
 
-    [Header("Fin")]
     [SerializeField] private bool loadNextSceneOnEnd = true;
     [SerializeField] private string nextSceneName = "Main";
     [SerializeField] private float endDelay = 1.5f;
@@ -44,9 +34,7 @@ public class TransitionsController : MonoBehaviour
     [System.Serializable]
     private class SlideHoldOverride
     {
-        [Tooltip("Prefijo de la diapositiva, por ejemplo \"04\" o \"05\".")]
         public string slidePrefix;
-        [Tooltip("Segundos que queda en pantalla la diapositiva completa.")]
         public float holdDuration = 2.5f;
     }
 

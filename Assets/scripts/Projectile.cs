@@ -11,9 +11,7 @@ public class Projectile : MonoBehaviour
     public GameObject impactVfx;
     public float impactVfxScale = 1f;
 
-    [Tooltip("Distancia horizontal desde la boca a la que empieza a caer (gravedad).")]
     public float fallStartDistance = 45f;
-    [Tooltip("Distancia horizontal total tras la cual explota (se apaga).")]
     public float maxRange = 60f;
 
     private bool consumed;

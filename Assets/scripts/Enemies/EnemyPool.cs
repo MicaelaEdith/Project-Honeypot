@@ -10,8 +10,6 @@ public class EnemyPool : MonoBehaviour
     {
         public GameObject prefab;
 
-        [Min(0)]
-        [Tooltip("Cuantas instancias dejar listas al arrancar.")]
         public int prewarm = 4;
     }
 

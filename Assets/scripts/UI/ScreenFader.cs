@@ -7,7 +7,6 @@ public class ScreenFader : MonoBehaviour
 {
     public static ScreenFader Instance { get; private set; }
 
-    [Tooltip("Imagen negra a fundir. Si se deja vacío se usa el Graphic de este mismo GameObject.")]
     [SerializeField] private Graphic target;
     [SerializeField] private float defaultDuration = 0.6f;
 

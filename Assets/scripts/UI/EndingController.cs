@@ -5,11 +5,9 @@ public class EndingController : MonoBehaviour
 {
     [SerializeField] private Transform panelRoot;
 
-    [Header("Resultado")]
     [SerializeField] private GameObject defeatGroup;
     [SerializeField] private GameObject victoryGroup;
 
-    [Header("Idioma")]
     [SerializeField] private GameObject defeatEnglish;
     [SerializeField] private GameObject defeatSpanish;
     [SerializeField] private GameObject victoryEnglish;

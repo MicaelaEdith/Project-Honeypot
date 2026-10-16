@@ -147,7 +147,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyShooter
   maxHealth: 60
-  detectionRange: 200
+  detectionRange: 220
   attackRange: 20
   damageAmount: 12
   attackCooldown: 3
@@ -180,6 +180,9 @@ MonoBehaviour:
   deathSwellPulses: 3
   deathSwellDuration: 0.5
   avoidanceRadiusFactor: 1
+  weaveAmplitudeFactor: 0
+  weaveFrequency: 2
+  weaveFadeDistanceFactor: 0.5
   muzzleRadius: 0
   spreadAngle: 120
   maxArcHalfAngle: 60

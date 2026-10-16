@@ -59,11 +59,6 @@ public class HoneyPotActivator : MonoBehaviour
                 TryActivate();
             }
         }
-        else if (accumulatedDegrees > 0f)
-        {
-            // acumulador parcial: no resetea hasta tocar W/S
-        }
-
         previousYaw = transform.eulerAngles.y;
     }
 

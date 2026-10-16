@@ -4,13 +4,10 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public class HealthBarView : MonoBehaviour
 {
-    [Tooltip("Image del relleno. Se anima su RectTransform, no su fillAmount. Si se deja vacio se busca el primer Image hijo.")]
     [SerializeField] private Image fill;
 
-    [Tooltip("Opcional. Numero de vida actual.")]
     [SerializeField] private Text healthText;
 
-    [Tooltip("Segundos que tarda la barra en vaciarse. 0 = se pega al valor nuevo.")]
     [SerializeField] private float fillSeconds = 0.2f;
 
     private RectTransform fillRect;

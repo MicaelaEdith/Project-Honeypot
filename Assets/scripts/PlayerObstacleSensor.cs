@@ -6,12 +6,8 @@ public class PlayerObstacleSensor : MonoBehaviour
     private const int MaxReadings = 8;
     private const float FallbackExtent = 1f;
 
-    [Header("Raycast")]
-    [Tooltip("Capa de los obstaculos (Decor = 3).")]
     [SerializeField] private LayerMask obstacleMask = 1 << 3;
-    [Tooltip("Largo de los rayos. Mas alla de esto se considera libre.")]
     [SerializeField] private float rayLength = 40f;
-    [Tooltip("Agregar las 4 diagonales: detecta esquinas al girar cerca de un muro.")]
     [SerializeField] private bool includeDiagonals = true;
 
     private struct Reading

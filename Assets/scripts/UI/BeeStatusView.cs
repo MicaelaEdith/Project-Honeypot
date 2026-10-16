@@ -8,7 +8,6 @@ public class BeeStatusView : MonoBehaviour
     [SerializeField] private Image beeIcon;
     [SerializeField] private Sprite[] beeSprites = new Sprite[0];
 
-    [Range(1f, 2f)]
     [SerializeField] private float punchScale = 1.05f;
 
     [SerializeField] private float punchSeconds = 0.25f;

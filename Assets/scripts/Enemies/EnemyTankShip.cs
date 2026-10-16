@@ -5,7 +5,6 @@ public class EnemyTankShip : EnemyTemplate
 
     [SerializeField] private Transform muzzle;
     [SerializeField] private float muzzleLength = 0f;
-    [Range(0f, 1f)]
     [SerializeField] private float aimConvergence = 0.2f;
     [SerializeField] private float aimJitter = 2.5f;
 

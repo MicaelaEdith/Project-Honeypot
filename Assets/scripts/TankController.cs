@@ -15,7 +15,6 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
     [SerializeField] private Vector3 bodyForwardLocal = Vector3.zero;
 
     [SerializeField] private bool autoFitController = true;
-    [Range(0.5f, 1f)]
     [SerializeField] private float fitWidthFactor = 0.8f;
 
     [SerializeField] private float obstacleStopMargin = 0.5f;
@@ -24,22 +23,15 @@ public class TankController : MonoBehaviour, IDamagable, IHealth
     [SerializeField] private int maxRespawns = 3;
     [SerializeField] private Transform spawnPointTransform;
 
-    [Header("Respawn (fade)")]
     [SerializeField] private float respawnFadeOutDuration = 0.6f;
     [SerializeField] private float respawnBlackHold = 0.35f;
     [SerializeField] private float respawnFadeInDuration = 0.6f;
 
-    [Tooltip("Distancia por debajo del spawn a la que se considera que el player se cayó del mundo y se lo devuelve al spawn.")]
     [SerializeField] private float fallResetDepth = 10f;
 
-    [Header("Choque con enemigos (sin físicas)")]
-    [Tooltip("Margen extra entre el player y el enemigo al reacomodarlo.")]
     [SerializeField] private float enemyPushMargin = 0.1f;
-    [Tooltip("Distancia máxima a la que se consideran enemigos para el empuje.")]
     [SerializeField] private float enemyPushRange = 25f;
-    [Tooltip("Holgura extra: si un enemigo esta a esta distancia del casco, el player no puede seguir avanzando hacia el.")]
     [SerializeField] private float enemyBlockSkin = 2.0f;
-    [Tooltip("TEMP: imprime en consola la distancia al enemigo mas cercano para diagnosticar el bloqueo.")]
     [SerializeField] private bool debugEnemyBlocking = true;
 
     private float nextEnemyDebugTime;

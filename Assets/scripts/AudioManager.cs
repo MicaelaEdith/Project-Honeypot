@@ -27,9 +27,9 @@ public class AudioManager : MonoBehaviour
     private AudioClip playerShotClip;
     private AudioClip enemyShotClip;
     private AudioClip damageClip;
+    private AudioClip enemyDamageClip;
     private AudioClip enemyExplosionClip;
     private AudioClip playerDeathClip;
-    private AudioClip victoryClip;
     private AudioClip honeypotClip;
 
     private float musicVolume = 1f;
@@ -116,9 +116,9 @@ public class AudioManager : MonoBehaviour
         playerShotClip = Resources.Load<AudioClip>("Audio/fxs/disparo_nave");
         enemyShotClip = Resources.Load<AudioClip>("Audio/fxs/disparo_enemigo");
         damageClip = Resources.Load<AudioClip>("Audio/fxs/danio");
+        enemyDamageClip = Resources.Load<AudioClip>("Audio/fxs/danio_enemigos");
         enemyExplosionClip = Resources.Load<AudioClip>("Audio/fxs/nave_explotando");
         playerDeathClip = Resources.Load<AudioClip>("Audio/fxs/muerte");
-        victoryClip = Resources.Load<AudioClip>("Audio/fxs/final");
         honeypotClip = Resources.Load<AudioClip>("Audio/fxs/honeypot");
     }
 
@@ -296,8 +296,8 @@ public class AudioManager : MonoBehaviour
     public void PlayPlayerShot() => Play(playerShotClip);
     public void PlayEnemyShot() => Play(enemyShotClip);
     public void PlayDamage() => Play(damageClip);
+    public void PlayEnemyDamage() => Play(enemyDamageClip);
     public void PlayEnemyExplosion() => Play(enemyExplosionClip);
     public void PlayPlayerDeath() => Play(playerDeathClip);
-    public void PlayVictory() => Play(victoryClip);
     public void PlayHoneypot() => Play(honeypotClip);
 }

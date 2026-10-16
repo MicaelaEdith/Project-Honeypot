@@ -449,6 +449,10 @@ public abstract class EnemyTemplate : MonoBehaviour, IDamagable
         {
             currentState = EnemyState.Death;
         }
+        else
+        {
+            AudioManager.Instance?.PlayEnemyDamage();
+        }
     }
 
     public void SetLurePosition(Vector3 position)

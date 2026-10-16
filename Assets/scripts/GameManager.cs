@@ -13,7 +13,6 @@ public class GameManager : MonoBehaviour
     [SerializeField] private float winRadius = 5f;
     [SerializeField] private float victoryDelay = 2f;
     [SerializeField] private string endingScene = "Ending";
-    [SerializeField] private AudioClip victoryClip;
     [SerializeField] private int startingIndex = 1;
     [SerializeField] private float startDelay = 1f;
     [SerializeField] private float defaultPostWavePause = 2f;
@@ -413,15 +412,6 @@ public class GameManager : MonoBehaviour
 
     private IEnumerator VictoryRoutine()
     {
-        if (AudioManager.Instance != null)
-        {
-            AudioManager.Instance.PlayVictory();
-        }
-        else if (victoryClip != null)
-        {
-            AudioSource.PlayClipAtPoint(victoryClip, player != null ? player.transform.position : transform.position);
-        }
-
         if (victoryDelay > 0f)
         {
             yield return new WaitForSeconds(victoryDelay);
